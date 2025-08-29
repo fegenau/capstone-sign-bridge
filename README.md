@@ -1,6 +1,6 @@
 <!-- Encabezado con logo y título -->
 <p align="center">
-  <img src="signbridge-logo.png" alt="SignBridge Logo" width="150" height="150">
+  <img src="./asset/signbridge-logo" alt="SignBridge Logo" width="150" height="150">
 </p>
 
 <h1 align="center">SignBridge 👐</h1>
