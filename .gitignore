@@ -137,6 +137,4 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-sign-Bridge/package.json
-sign-Bridge/package-lock.json
 sign-Bridge/README.md
