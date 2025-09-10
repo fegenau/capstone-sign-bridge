@@ -38,7 +38,8 @@
         {
           "cameraPermission": "SignBridge necesita acceso a la cámara para detectar letras del alfabeto de señas."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
