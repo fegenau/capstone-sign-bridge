@@ -8,39 +8,108 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
+// Importar nuestros componentes
+import DetectionOverlay from '../components/camera/DetectionOverlay';
+import { detectionService } from '../utils/services/detectionService';
+
 const AlphabetDetectionScreen = () => {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [cameraType, setCameraType] = useState(Camera.Constants.Type.back);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState('back');
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Estados para detección
+  const [detectedLetter, setDetectedLetter] = useState(null);
+  const [confidence, setConfidence] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isDetectionActive, setIsDetectionActive] = useState(false);
+  
   const cameraRef = useRef(null);
 
   useEffect(() => {
-    requestCameraPermission();
+    // Simular tiempo de carga inicial
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      // Iniciar detección automáticamente después de cargar
+      startDetection();
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+      // Limpiar al desmontar componente
+      detectionService.stopDetection();
+    };
   }, []);
 
-  const requestCameraPermission = async () => {
+  // Configurar callback para recibir resultados de detección
+  useEffect(() => {
+    const handleDetectionResult = (result) => {
+      if (result.isProcessing !== undefined) {
+        setIsProcessing(result.isProcessing);
+      }
+      
+      if (result.letter !== undefined) {
+        setDetectedLetter(result.letter);
+        setConfidence(result.confidence || 0);
+      }
+    };
+
+    detectionService.onDetection(handleDetectionResult);
+
+    return () => {
+      detectionService.offDetection(handleDetectionResult);
+    };
+  }, []);
+
+  const startDetection = async () => {
     try {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-      setIsLoading(false);
+      setIsDetectionActive(true);
+      await detectionService.startDetection();
+      console.log('Detección iniciada');
     } catch (error) {
-      console.error('Error requesting camera permission:', error);
-      setIsLoading(false);
+      console.error('Error al iniciar detección:', error);
+      Alert.alert('Error', 'No se pudo iniciar la detección');
     }
   };
 
-  const toggleCameraType = () => {
-    setCameraType(current =>
-      current === Camera.Constants.Type.back
-        ? Camera.Constants.Type.front
-        : Camera.Constants.Type.back
-    );
+  const stopDetection = () => {
+    try {
+      setIsDetectionActive(false);
+      detectionService.stopDetection();
+      setDetectedLetter(null);
+      setConfidence(0);
+      setIsProcessing(false);
+      console.log('Detección detenida');
+    } catch (error) {
+      console.error('Error al detener detección:', error);
+    }
   };
 
+  const forceDetection = async () => {
+    try {
+      await detectionService.forceDetection();
+    } catch (error) {
+      console.error('Error en detección manual:', error);
+      Alert.alert('Error', 'Error en detección manual');
+    }
+  };
+
+  const toggleCameraFacing = () => {
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
+  };
+
+  const toggleDetection = () => {
+    if (isDetectionActive) {
+      stopDetection();
+    } else {
+      startDetection();
+    }
+  };
+
+  // Estado de carga
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
@@ -51,7 +120,18 @@ const AlphabetDetectionScreen = () => {
     );
   }
 
-  if (hasPermission === false) {
+  // Estado sin permisos
+  if (!permission) {
+    return (
+      <View style={styles.centerContainer}>
+        <StatusBar style="light" />
+        <Ionicons name="camera" size={80} color="#FFB800" />
+        <Text style={styles.loadingText}>Verificando permisos...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
     return (
       <View style={styles.centerContainer}>
         <StatusBar style="light" />
@@ -60,7 +140,7 @@ const AlphabetDetectionScreen = () => {
         <Text style={styles.subtitleText}>
           SignBridge necesita acceso a la cámara para detectar letras
         </Text>
-        <TouchableOpacity style={styles.button} onPress={requestCameraPermission}>
+        <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>Solicitar permisos</Text>
         </TouchableOpacity>
       </View>
@@ -79,9 +159,9 @@ const AlphabetDetectionScreen = () => {
 
       {/* Vista de Cámara */}
       <View style={styles.cameraContainer}>
-        <Camera
+        <CameraView
           style={styles.camera}
-          type={cameraType}
+          facing={facing}
           ref={cameraRef}
         />
         
@@ -99,35 +179,52 @@ const AlphabetDetectionScreen = () => {
           </View>
         </View>
 
+        {/* Overlay de detección - NUEVO COMPONENTE */}
+        <DetectionOverlay
+          detectedLetter={detectedLetter}
+          confidence={confidence}
+          isProcessing={isProcessing}
+          isVisible={true}
+        />
+
         {/* Indicador de estado */}
         <View style={styles.statusContainer}>
           <View style={styles.statusIndicator}>
-            <Ionicons name="camera" size={16} color="#00FF88" />
-            <Text style={styles.statusText}>Cámara activa</Text>
+            <Ionicons 
+              name={isDetectionActive ? "camera" : "camera-off"} 
+              size={16} 
+              color={isDetectionActive ? "#00FF88" : "#FFB800"} 
+            />
+            <Text style={styles.statusText}>
+              {isDetectionActive ? 'Detectando' : 'Pausado'}
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* Controles */}
+      {/* Controles actualizados */}
       <View style={styles.controls}>
-        <TouchableOpacity style={styles.controlButton} onPress={toggleCameraType}>
+        <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
           <Ionicons name="camera-reverse" size={24} color="#fff" />
           <Text style={styles.controlButtonText}>
-            {cameraType === Camera.Constants.Type.back ? 'Frontal' : 'Trasera'}
+            {facing === 'back' ? 'Frontal' : 'Trasera'}
           </Text>
         </TouchableOpacity>
         
-        <View style={styles.controlButton}>
-          <Ionicons name="hand-left" size={24} color="#00FF88" />
-          <Text style={styles.controlButtonText}>Muestra una letra</Text>
-        </View>
+        <TouchableOpacity style={styles.controlButton} onPress={forceDetection}>
+          <Ionicons name="refresh" size={24} color="#00FF88" />
+          <Text style={styles.controlButtonText}>Detectar</Text>
+        </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={styles.controlButton}
-          onPress={() => Alert.alert('Configuración', 'Próximamente...')}
-        >
-          <Ionicons name="settings" size={24} color="#fff" />
-          <Text style={styles.controlButtonText}>Configurar</Text>
+        <TouchableOpacity style={styles.controlButton} onPress={toggleDetection}>
+          <Ionicons 
+            name={isDetectionActive ? "pause" : "play"} 
+            size={24} 
+            color={isDetectionActive ? "#FFB800" : "#00FF88"} 
+          />
+          <Text style={styles.controlButtonText}>
+            {isDetectionActive ? 'Pausar' : 'Iniciar'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -303,6 +400,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  
+  // Nuevos estilos para mejorar el manejo de permisos
+  buttonContainer: {
+    marginTop: 30,
+    width: '100%',
+    alignItems: 'center',
+  },
+  
+  buttonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#00FF88',
+    marginTop: 15,
+  },
+  
+  buttonTextSecondary: {
+    color: '#00FF88',
+  },
+  
+  errorDetailText: {
+    color: '#FFB800',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 15,
+    marginHorizontal: 20,
+    lineHeight: 18,
   },
 });
 
