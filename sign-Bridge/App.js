@@ -1,54 +1,13 @@
 // App.js
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native'; // IMPORTAR AQUÍ
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
-// Importar estilos globales
-import { COLORS } from './styles/colors.js';
-import { SCREEN_NAMES } from './utils/constants';
-
-// Componente temporal para testing
-const TestScreen = () => {
-  // ELIMINAR esta línea:
-  // const { View, Text, StyleSheet } = require('react-native');
-  
-  return (
-    <View style={styles.container}>
-      <Text style={styles.text}>✅ SignBridge configurado correctamente</Text>
-      <Text style={styles.subtitle}>Dependencias instaladas</Text>
-      <Text style={styles.subtitle}>Estructura de carpetas creada</Text>
-      <Text style={styles.subtitle}>Estilos globales configurados</Text>
-      <Text style={styles.subtitle}>Constantes definidas</Text>
-    </View>
-  );
-};
-
-// Mover los estilos FUERA del componente
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  text: {
-    color: COLORS.success,
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  subtitle: {
-    color: COLORS.text,
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-});
+// Importar pantallas
+import SplashScreen from './screens/SplashScreen';
+import AlphabetDetectionScreen from './screens/AlphabetDetectionScreen';
 
 const Stack = createStackNavigator();
 
@@ -59,32 +18,37 @@ export default function App() {
         theme={{
           dark: true,
           colors: {
-            primary: COLORS.primary,
-            background: COLORS.background,
-            card: COLORS.surface || COLORS.background,
-            text: COLORS.text,
-            border: COLORS.border,
-            notification: COLORS.error,
+            primary: '#00FF88',
+            background: '#000000',
+            card: '#000000',
+            text: '#FFFFFF',
+            border: 'rgba(255, 255, 255, 0.1)',
+            notification: '#FF4444',
           },
         }}
       >
         <StatusBar 
           style="light" 
-          backgroundColor={COLORS.background} 
+          backgroundColor="#000000" 
           translucent={false}
         />
         
         <Stack.Navigator 
-          initialRouteName="Test"
+          initialRouteName="Splash"
           screenOptions={{
             headerShown: false,
             gestureEnabled: false,
-            cardStyle: { backgroundColor: COLORS.background },
+            cardStyle: { backgroundColor: '#000000' },
           }}
         >
           <Stack.Screen 
-            name="Test" 
-            component={TestScreen} 
+            name="Splash" 
+            component={SplashScreen}
+          />
+          
+          <Stack.Screen 
+            name="AlphabetDetection" 
+            component={AlphabetDetectionScreen}
           />
         </Stack.Navigator>
       </NavigationContainer>
