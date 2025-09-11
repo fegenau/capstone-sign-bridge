@@ -1,4 +1,4 @@
-// src/screens/AlphabetDetectionScreen.js
+// screens/AlphabetDetectionScreen.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -7,109 +7,242 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-// Importar nuestros componentes
-import DetectionOverlay from '../components/camera/DetectionOverlay';
-import { detectionService } from '../utils/services/detectionService';
+// Simulador de detección integrado directamente
+const useDetectionSimulator = () => {
+  const [detectedLetter, setDetectedLetter] = useState(null);
+  const [confidence, setConfidence] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isActive, setIsActive] = useState(false);
+
+  const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+  const simulate = () => {
+    setIsProcessing(true);
+    
+    setTimeout(() => {
+      const hasDetection = Math.random() > 0.3;
+      
+      if (hasDetection) {
+        const randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+        const randomConfidence = Math.floor(Math.random() * (95 - 30) + 30);
+        
+        setDetectedLetter(randomLetter);
+        setConfidence(randomConfidence);
+      } else {
+        setDetectedLetter(null);
+        setConfidence(0);
+      }
+      
+      setIsProcessing(false);
+    }, 800);
+  };
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    const interval = setInterval(simulate, 2000);
+    return () => clearInterval(interval);
+  }, [isActive]);
+
+  return {
+    detectedLetter,
+    confidence,
+    isProcessing,
+    isActive,
+    start: () => setIsActive(true),
+    stop: () => {
+      setIsActive(false);
+      setDetectedLetter(null);
+      setConfidence(0);
+      setIsProcessing(false);
+    },
+    forceDetection: simulate,
+  };
+};
+
+// Componente de overlay integrado
+const DetectionOverlay = ({ detectedLetter, confidence, isProcessing }) => {
+  const getConfidenceColor = (conf) => {
+    if (conf >= 70) return '#00FF88';
+    if (conf >= 40) return '#FFB800';
+    return '#FF4444';
+  };
+
+  const renderContent = () => {
+    if (isProcessing) {
+      return (
+        <View style={overlayStyles.contentContainer}>
+          <Ionicons name="sync" size={40} color="#00FF88" />
+          <Text style={overlayStyles.processingText}>Procesando...</Text>
+        </View>
+      );
+    }
+
+    if (detectedLetter && confidence !== null) {
+      const confidenceColor = getConfidenceColor(confidence);
+      
+      return (
+        <View style={overlayStyles.contentContainer}>
+          <Text style={overlayStyles.detectedLetter}>{detectedLetter}</Text>
+          
+          <View style={overlayStyles.confidenceContainer}>
+            <Text style={overlayStyles.confidenceLabel}>
+              Confianza: {confidence}%
+            </Text>
+            
+            <View style={overlayStyles.confidenceBar}>
+              <View 
+                style={[
+                  overlayStyles.confidenceFill, 
+                  { 
+                    width: `${Math.min(confidence, 100)}%`,
+                    backgroundColor: confidenceColor
+                  }
+                ]} 
+              />
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={overlayStyles.contentContainer}>
+        <Ionicons name="hand-left" size={60} color="#CCCCCC" />
+        <Text style={overlayStyles.noDetectionText}>
+          Muestra una letra con tu mano
+        </Text>
+      </View>
+    );
+  };
+
+  return (
+    <View style={overlayStyles.overlay}>
+      <View style={overlayStyles.detectionBox}>
+        {renderContent()}
+      </View>
+    </View>
+  );
+};
+
+const overlayStyles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  detectionBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderRadius: 20,
+    padding: 25,
+    alignItems: 'center',
+    minWidth: 250,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  contentContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  detectedLetter: {
+    color: '#00FF88',
+    fontSize: 80,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  confidenceContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  confidenceLabel: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  confidenceBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  confidenceFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  noDetectionText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 15,
+  },
+  processingText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 15,
+  },
+});
 
 const AlphabetDetectionScreen = () => {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
   const [isLoading, setIsLoading] = useState(true);
   
-  // Estados para detección
-  const [detectedLetter, setDetectedLetter] = useState(null);
-  const [confidence, setConfidence] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isDetectionActive, setIsDetectionActive] = useState(false);
-  
+  const detection = useDetectionSimulator();
   const cameraRef = useRef(null);
 
   useEffect(() => {
-    // Simular tiempo de carga inicial
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       setIsLoading(false);
-      // Iniciar detección automáticamente después de cargar
-      startDetection();
+      const result = await requestPermission();
+      if (result?.granted) {
+        setTimeout(() => {
+          detection.start();
+        }, 500);
+      }
     }, 1000);
 
     return () => {
       clearTimeout(timer);
-      // Limpiar al desmontar componente
-      detectionService.stopDetection();
+      detection.stop();
     };
   }, []);
-
-  // Configurar callback para recibir resultados de detección
-  useEffect(() => {
-    const handleDetectionResult = (result) => {
-      if (result.isProcessing !== undefined) {
-        setIsProcessing(result.isProcessing);
-      }
-      
-      if (result.letter !== undefined) {
-        setDetectedLetter(result.letter);
-        setConfidence(result.confidence || 0);
-      }
-    };
-
-    detectionService.onDetection(handleDetectionResult);
-
-    return () => {
-      detectionService.offDetection(handleDetectionResult);
-    };
-  }, []);
-
-  const startDetection = async () => {
-    try {
-      setIsDetectionActive(true);
-      await detectionService.startDetection();
-      console.log('Detección iniciada');
-    } catch (error) {
-      console.error('Error al iniciar detección:', error);
-      Alert.alert('Error', 'No se pudo iniciar la detección');
-    }
-  };
-
-  const stopDetection = () => {
-    try {
-      setIsDetectionActive(false);
-      detectionService.stopDetection();
-      setDetectedLetter(null);
-      setConfidence(0);
-      setIsProcessing(false);
-      console.log('Detección detenida');
-    } catch (error) {
-      console.error('Error al detener detección:', error);
-    }
-  };
-
-  const forceDetection = async () => {
-    try {
-      await detectionService.forceDetection();
-    } catch (error) {
-      console.error('Error en detección manual:', error);
-      Alert.alert('Error', 'Error en detección manual');
-    }
-  };
 
   const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
   const toggleDetection = () => {
-    if (isDetectionActive) {
-      stopDetection();
+    if (detection.isActive) {
+      detection.stop();
     } else {
-      startDetection();
+      detection.start();
     }
   };
 
-  // Estado de carga
+  const handleLetterPress = (letter) => {
+    Alert.alert(
+      `Letra ${letter}`,
+      `Has seleccionado la letra ${letter}. Esta función se expandirá para mostrar más información sobre cómo hacer esta letra.`,
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
@@ -120,7 +253,6 @@ const AlphabetDetectionScreen = () => {
     );
   }
 
-  // Estado sin permisos
   if (!permission) {
     return (
       <View style={styles.centerContainer}>
@@ -138,8 +270,9 @@ const AlphabetDetectionScreen = () => {
         <Ionicons name="camera-off" size={80} color="#FF4444" />
         <Text style={styles.errorText}>Sin acceso a la cámara</Text>
         <Text style={styles.subtitleText}>
-          SignBridge necesita acceso a la cámara para detectar letras
+          SignBridge necesita acceso a la cámara para detectar letras del alfabeto de señas
         </Text>
+        
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>Solicitar permisos</Text>
         </TouchableOpacity>
@@ -151,13 +284,11 @@ const AlphabetDetectionScreen = () => {
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>SignBridge</Text>
         <Text style={styles.headerSubtitle}>Detección de Alfabeto</Text>
       </View>
 
-      {/* Vista de Cámara */}
       <View style={styles.cameraContainer}>
         <CameraView
           style={styles.camera}
@@ -165,44 +296,33 @@ const AlphabetDetectionScreen = () => {
           ref={cameraRef}
         />
         
-        {/* Frame guía */}
         <View style={styles.frameGuide}>
           <View style={styles.corner} />
           <View style={[styles.corner, styles.cornerTopRight]} />
           <View style={[styles.corner, styles.cornerBottomLeft]} />
           <View style={[styles.corner, styles.cornerBottomRight]} />
-          
-          <View style={styles.guideTextContainer}>
-            <Text style={styles.guideText}>
-              Coloca tu mano dentro del marco
-            </Text>
-          </View>
         </View>
 
-        {/* Overlay de detección - NUEVO COMPONENTE */}
         <DetectionOverlay
-          detectedLetter={detectedLetter}
-          confidence={confidence}
-          isProcessing={isProcessing}
-          isVisible={true}
+          detectedLetter={detection.detectedLetter}
+          confidence={detection.confidence}
+          isProcessing={detection.isProcessing}
         />
 
-        {/* Indicador de estado */}
         <View style={styles.statusContainer}>
           <View style={styles.statusIndicator}>
             <Ionicons 
-              name={isDetectionActive ? "camera" : "camera-off"} 
+              name={detection.isActive ? "camera" : "camera-off"} 
               size={16} 
-              color={isDetectionActive ? "#00FF88" : "#FFB800"} 
+              color={detection.isActive ? "#00FF88" : "#FFB800"} 
             />
             <Text style={styles.statusText}>
-              {isDetectionActive ? 'Detectando' : 'Pausado'}
+              {detection.isActive ? 'Detectando' : 'Pausado'}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Controles actualizados */}
       <View style={styles.controls}>
         <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
           <Ionicons name="camera-reverse" size={24} color="#fff" />
@@ -211,21 +331,48 @@ const AlphabetDetectionScreen = () => {
           </Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.controlButton} onPress={forceDetection}>
+        <TouchableOpacity style={styles.controlButton} onPress={detection.forceDetection}>
           <Ionicons name="refresh" size={24} color="#00FF88" />
           <Text style={styles.controlButtonText}>Detectar</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.controlButton} onPress={toggleDetection}>
           <Ionicons 
-            name={isDetectionActive ? "pause" : "play"} 
+            name={detection.isActive ? "pause" : "play"} 
             size={24} 
-            color={isDetectionActive ? "#FFB800" : "#00FF88"} 
+            color={detection.isActive ? "#FFB800" : "#00FF88"} 
           />
           <Text style={styles.controlButtonText}>
-            {isDetectionActive ? 'Pausar' : 'Iniciar'}
+            {detection.isActive ? 'Pausar' : 'Iniciar'}
           </Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.alphabetPanel}>
+        <Text style={styles.alphabetTitle}>
+          Alfabeto de Referencia {detection.detectedLetter ? `- ${detection.detectedLetter}` : ''}
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.alphabetRow}>
+            {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'].map((letter) => (
+              <TouchableOpacity
+                key={letter}
+                style={[
+                  styles.letterBox,
+                  detection.detectedLetter === letter && styles.letterBoxActive
+                ]}
+                onPress={() => handleLetterPress(letter)}
+              >
+                <Text style={[
+                  styles.letterText,
+                  detection.detectedLetter === letter && styles.letterTextActive
+                ]}>
+                  {letter}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -312,21 +459,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderLeftWidth: 0,
   },
-  guideTextContainer: {
-    position: 'absolute',
-    bottom: -40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  guideText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
   statusContainer: {
     position: 'absolute',
     top: 20,
@@ -349,7 +481,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 15,
     paddingHorizontal: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     borderTopWidth: 1,
@@ -366,6 +498,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 4,
     textAlign: 'center',
+  },
+  alphabetPanel: {
+    backgroundColor: '#1a1a1a',
+    padding: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  alphabetTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  alphabetRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 5,
+  },
+  letterBox: {
+    width: 35,
+    height: 35,
+    backgroundColor: '#333',
+    margin: 2,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  letterBoxActive: {
+    backgroundColor: '#00FF88',
+    transform: [{ scale: 1.1 }],
+  },
+  letterText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  letterTextActive: {
+    color: '#000',
   },
   loadingText: {
     color: '#FFFFFF',
@@ -400,33 +570,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
-  },
-  
-  // Nuevos estilos para mejorar el manejo de permisos
-  buttonContainer: {
-    marginTop: 30,
-    width: '100%',
-    alignItems: 'center',
-  },
-  
-  buttonSecondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#00FF88',
-    marginTop: 15,
-  },
-  
-  buttonTextSecondary: {
-    color: '#00FF88',
-  },
-  
-  errorDetailText: {
-    color: '#FFB800',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 15,
-    marginHorizontal: 20,
-    lineHeight: 18,
   },
 });
 
