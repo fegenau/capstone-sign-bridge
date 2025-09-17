@@ -17,7 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import DetectionOverlay from '../components/camera/DetectionOverlay';
 import { detectionService } from '../utils/services/detectionService';
 
-const AlphabetDetectionScreen = () => {
+const AlphabetDetectionScreen = ({ navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
   const [isLoading, setIsLoading] = useState(true);
@@ -161,10 +161,19 @@ const AlphabetDetectionScreen = () => {
       <StatusBar style="light" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>SignBridge</Text>
-        <Text style={styles.headerSubtitle}>Detección de Alfabeto</Text>
-      </View>
+<View style={styles.header}>
+  <TouchableOpacity 
+    style={styles.backButton}
+    onPress={() => navigation.goBack()}
+  >
+    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+  </TouchableOpacity>
+  <View style={styles.headerContent}>
+    <Text style={styles.headerTitle}>SignBridge</Text>
+    <Text style={styles.headerSubtitle}>Detección de Alfabeto</Text>
+  </View>
+  <View style={styles.headerSpacer} />
+</View>
 
       {/* Vista de Cámara */}
       <View style={styles.cameraContainer}>
@@ -552,6 +561,19 @@ const styles = StyleSheet.create({
   letterTextActive: {
     color: '#000',
   },
+  backButton: {
+  width: 40,
+  height: 40,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+headerContent: {
+  flex: 1,
+  alignItems: 'center',
+},
+headerSpacer: {
+  width: 40,
+},
 }); // <- Cierre del StyleSheet
 
 export default AlphabetDetectionScreen;
