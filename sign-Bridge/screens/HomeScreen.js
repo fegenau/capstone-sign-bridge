@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ScrollView,
   SafeAreaView,
-  Dimensions 
+  Dimensions,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -17,15 +18,6 @@ const { width, height } = Dimensions.get('window');
 const HomeScreen = ({ navigation }) => {
   
   const menuOptions = [
-    {
-      id: 'detection',
-      title: 'Detección de Alfabeto',
-      subtitle: 'Practica letras con tu cámara',
-      icon: 'camera',
-      color: '#00FF88',
-      screen: 'AlphabetDetection',
-      available: true,
-    },
     {
       id: 'practice',
       title: 'Modo Práctica',
@@ -42,7 +34,7 @@ const HomeScreen = ({ navigation }) => {
       icon: 'library',
       color: '#FFB800',
       screen: 'Dictionary',
-      available: false,
+      available: true,
     },
     {
       id: 'progress',
@@ -123,6 +115,8 @@ const HomeScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const icon = require('../assets/images/IconSignBridge.png');
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" backgroundColor="#000000" />
@@ -133,16 +127,16 @@ const HomeScreen = ({ navigation }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.logoSection}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="hand-left" size={40} color="#00FF88" />
-            </View>
-            <View>
-              <Text style={styles.appTitle}>SignBridge</Text>
+              <Image source={icon} style={{
+                marginTop: 80,
+                marginBottom: 10,
+                width: 150  ,
+                height: 150,
+                borderRadius: 75,
+              }} />
               <Text style={styles.appSubtitle}>Aprende el alfabeto de señas</Text>
             </View>
-          </View>
-        </View>
+        
 
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
@@ -172,7 +166,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* Menu Options */}
+        Menu Options
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Funciones</Text>
           {menuOptions.map(renderMenuItem)}
@@ -200,12 +194,14 @@ const styles = StyleSheet.create({
   },
   
   header: {
+    alignItems: 'center',
     padding: 20,
     paddingTop: 10,
   },
   
   logoSection: {
-    flexDirection: 'row',
+    resizeMode: 'center',
+    paddingTop: 80,
     alignItems: 'center',
   },
   
@@ -225,6 +221,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 28,
     fontWeight: 'bold',
+    marginLeft: 20,
   },
   
   appSubtitle: {
