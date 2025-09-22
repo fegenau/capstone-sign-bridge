@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 27
+names: ['A', 'B', 'C', 'D', 'E', 'EYE', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+
+roboflow:
+  workspace: handdet-floyi
+  project: lengua-de-senas-chilena-xg0f4
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/handdet-floyi/lengua-de-senas-chilena-xg0f4/dataset/1
