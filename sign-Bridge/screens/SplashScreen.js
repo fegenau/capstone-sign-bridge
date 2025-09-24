@@ -1,11 +1,10 @@
 // screens/SplashScreen.js
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Animated, Dimensions, Image} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 const { width, height } = Dimensions.get('window');
-
+const icon = require('../assets/images/IconSignBridge.png');
 const SplashScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
@@ -97,13 +96,16 @@ const SplashScreen = ({ navigation }) => {
       >
         {/* Logo Container */}
         <View style={styles.logoContainer}>
-          <View style={styles.logoBackground} />
-          <Ionicons name="hand-left" size={80} color="#00FF88" />
-          <View style={styles.logoGlow} />
+          <Image source={icon} style={{
+                          marginTop: 80,
+                          marginBottom: 10,
+                          width: 150  ,
+                          height: 150,
+                          borderRadius: 75,
+                        }} />
         </View>
         
         {/* Título */}
-        <Text style={styles.title}>SignBridge</Text>
         <Text style={styles.subtitle}>Aprende el alfabeto de señas</Text>
         <Text style={styles.version}>v1.0.0</Text>
       </Animated.View>
