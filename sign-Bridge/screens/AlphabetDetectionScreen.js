@@ -1,4 +1,3 @@
-// src/screens/AlphabetDetectionScreen.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -12,8 +11,6 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-
-// Importar nuestros componentes
 import DetectionOverlay from '../components/camera/DetectionOverlay';
 import { detectionService } from '../utils/services/detectionService';
 
@@ -21,37 +18,27 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Estados para detección
   const [detectedLetter, setDetectedLetter] = useState(null);
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
-  
   const cameraRef = useRef(null);
 
   useEffect(() => {
-    // Simular tiempo de carga inicial
     const timer = setTimeout(() => {
       setIsLoading(false);
-      // Iniciar detección automáticamente después de cargar
       startDetection();
     }, 1000);
-
     return () => {
       clearTimeout(timer);
-      // Limpiar al desmontar componente
       detectionService.stopDetection();
     };
   }, []);
-
-  // Configurar callback para recibir resultados de detección
   useEffect(() => {
     const handleDetectionResult = (result) => {
       if (result.isProcessing !== undefined) {
         setIsProcessing(result.isProcessing);
       }
-      
       if (result.letter !== undefined) {
         setDetectedLetter(result.letter);
         setConfidence(result.confidence || 0);
@@ -59,7 +46,6 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     };
 
     detectionService.onDetection(handleDetectionResult);
-
     return () => {
       detectionService.offDetection(handleDetectionResult);
     };
@@ -118,7 +104,6 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     );
   };
 
-  // Estado de carga
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
@@ -129,7 +114,6 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     );
   }
 
-  // Estado sin permisos
   if (!permission) {
     return (
       <View style={styles.centerContainer}>
@@ -479,7 +463,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   
-  // Nuevos estilos para mejorar el manejo de permisos
   buttonContainer: {
     marginTop: 30,
     width: '100%',
@@ -505,7 +488,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     lineHeight: 18,
   },
-  // AQUÍ AGREGAS LOS NUEVOS ESTILOS:
   statusPanel: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     paddingVertical: 8,
@@ -574,6 +556,6 @@ headerContent: {
 headerSpacer: {
   width: 40,
 },
-}); // <- Cierre del StyleSheet
+});
 
 export default AlphabetDetectionScreen;

@@ -1,12 +1,9 @@
-// App.js
 import React from 'react';
 import { StatusBar, Platform } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-
-// Importar pantallas
 import SplashScreen from './screens/SplashScreen';
 import HomeScreen from './screens/HomeScreen';
 import AlphabetDetectionScreen from './screens/AlphabetDetectionScreen';
@@ -14,7 +11,6 @@ import SettingsScreen from './screens/SettingsScreen';
 
 const Stack = createStackNavigator();
 
-// Tema de navegación personalizado
 const navigationTheme = {
   dark: true,
   colors: {
@@ -27,7 +23,6 @@ const navigationTheme = {
   },
 };
 
-// Configuración de StatusBar para diferentes pantallas
 const configureStatusBar = () => {
   if (Platform.OS === 'android') {
     StatusBar.setBackgroundColor('#000000');
@@ -172,7 +167,6 @@ const App = () => {
   );
 };
 
-// Componente placeholder para pantallas futuras
 const ComingSoonScreen = ({ navigation }) => {
   const { View, Text, StyleSheet, TouchableOpacity } = require('react-native');
   const { Ionicons } = require('@expo/vector-icons');
