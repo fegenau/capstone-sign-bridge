@@ -166,7 +166,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        Menu Options
+        {/* Menu Options */}
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Funciones</Text>
           {menuOptions.map(renderMenuItem)}
