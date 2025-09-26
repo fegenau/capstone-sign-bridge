@@ -10,8 +10,14 @@ const ALPHABET = [
 const DETECTION_CONFIG = {
   minConfidence: 30,      // Confianza mínima para mostrar resultado
   maxConfidence: 95,      // Confianza máxima realista
-  processingTime: 800,    // Tiempo de procesamiento en ms
-  detectionInterval: 2000, // Intervalo entre detecciones automáticas
+  processingTime: 800,    // Tiempo de procesamiento en ms (mock)
+  detectionInterval: 2000, // Intervalo entre detecciones automáticas (mock)
+};
+
+// NUEVO: Backend de detección (mock o ws)
+const DETECTION_BACKEND = {
+  mode: 'ws', 
+  wsUrl: 'ws://192.168.100.1:8765'
 };
 
 /**
@@ -58,6 +64,18 @@ export class DetectionService {
     this.isActive = false;
     this.detectionTimer = null;
     this.callbacks = [];
+    // NUEVO
+    this.mode = DETECTION_BACKEND.mode; // 'mock' | 'ws'
+    this.ws = null;
+  }
+
+  // NUEVO: permite cambiar el modo en runtime
+  setMode(mode) {
+    if (!['mock', 'ws'].includes(mode)) {
+      console.warn('Modo de detección inválido:', mode);
+      return;
+    }
+    this.mode = mode;
   }
 
   /**
@@ -90,6 +108,56 @@ export class DetectionService {
     });
   }
 
+  // NUEVO: conexión WebSocket con el servidor YOLO
+  connectWs() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
+
+    try {
+      this.ws = new WebSocket(DETECTION_BACKEND.wsUrl);
+
+      this.ws.onopen = () => {
+        console.log('🔌 Conectado a YOLO WS:', DETECTION_BACKEND.wsUrl);
+        this.notifyCallbacks({ isProcessing: false, isLive: true, connected: true });
+      };
+
+      this.ws.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          // data esperado: { isProcessing, letter, confidence, timestamp, source }
+          const letter = data?.letter ?? null;
+          const confidence = Number.isFinite(data?.confidence) ? data.confidence : 0;
+
+          this.notifyCallbacks({
+            isProcessing: false,
+            letter,
+            confidence,
+            timestamp: data?.timestamp || Date.now(),
+            source: data?.source || 'yolo'
+          });
+        } catch (e) {
+          console.error('Mensaje WS inválido:', e);
+        }
+      };
+
+      this.ws.onerror = (err) => {
+        console.error('Error en WS:', err);
+        this.notifyCallbacks({ isProcessing: false, error: 'WS error' });
+      };
+
+      this.ws.onclose = () => {
+        console.log('🔌 WS cerrado');
+        if (this.isActive && this.mode === 'ws') {
+          // Reintento simple
+          setTimeout(() => this.connectWs(), 1500);
+        }
+        this.notifyCallbacks({ isProcessing: false, connected: false });
+      };
+    } catch (e) {
+      console.error('No se pudo abrir WS:', e);
+      this.notifyCallbacks({ isProcessing: false, error: 'No se pudo abrir WS' });
+    }
+  }
+
   /**
    * Inicia la detección automática
    */
@@ -102,7 +170,14 @@ export class DetectionService {
     this.isActive = true;
     console.log('🎯 DetectionService iniciado');
 
-    // Bucle de detección
+    if (this.mode === 'ws') {
+      this.connectWs();
+      // El servidor empuja resultados; aquí sólo indicamos estado
+      this.notifyCallbacks({ isProcessing: false, isLive: true });
+      return;
+    }
+
+    // Modo mock (loop local)
     const detectLoop = async () => {
       if (!this.isActive) return;
 
@@ -165,6 +240,12 @@ export class DetectionService {
       this.detectionTimer = null;
     }
 
+    // Cerrar WS si aplica
+    if (this.ws) {
+      try { this.ws.close(); } catch (_) {}
+      this.ws = null;
+    }
+
     console.log('🛑 DetectionService detenido');
     
     // Notificar estado final
@@ -185,9 +266,18 @@ export class DetectionService {
       return;
     }
 
-    console.log('🔄 Forzando detección manual');
-    
-    // Notificar procesamiento
+    if (this.mode === 'ws' && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      // Mensaje opcional al servidor (si implementas "force")
+      try {
+        this.ws.send(JSON.stringify({ action: 'force' }));
+      } catch (e) {
+        console.warn('No se pudo enviar force:', e);
+      }
+      return;
+    }
+
+    // Modo mock
+    console.log('🔄 Forzando detección manual (mock)');
     this.notifyCallbacks({ isProcessing: true });
 
     try {
@@ -227,7 +317,9 @@ export class DetectionService {
     return {
       isActive: this.isActive,
       callbackCount: this.callbacks.length,
-      config: DETECTION_CONFIG
+      config: DETECTION_CONFIG,
+      backend: { ...DETECTION_BACKEND, mode: this.mode },
+      connected: !!this.ws && this.ws.readyState === WebSocket.OPEN
     };
   }
 }

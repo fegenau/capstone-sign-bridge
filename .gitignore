@@ -71,3 +71,9 @@ coverage/
 
 # Yarn Integrity file
 .yarn-integrity
+
+# dotenv environment variables file
+.venv/
+.env
+.env.local
+.env.*.local
