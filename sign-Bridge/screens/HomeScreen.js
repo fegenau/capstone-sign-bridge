@@ -115,19 +115,6 @@ const HomeScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  <TouchableOpacity
-  style={styles.menuCard}
-  onPress={() => navigation.navigate('NumberDetection')}
->
-  <Ionicons name="keypad-outline" size={48} color="#4A90E2" />
-  <View style={styles.cardContent}>
-    <Text style={styles.menuCardTitle}>Detección de Números</Text>
-    <Text style={styles.menuCardSubtitle}>Practica números del 0 al 9</Text>
-  </View>
-  <Ionicons name="chevron-forward" size={24} color="#999" />
-</TouchableOpacity>
-
-
   const icon = require('../assets/images/IconSignBridge.png');
 
   return (
@@ -140,17 +127,16 @@ const HomeScreen = ({ navigation }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-              <Image source={icon} style={{
-                marginTop: 80,
-                marginBottom: 10,
-                width: 150  ,
-                height: 150,
-                borderRadius: 75,
-              }} />
-              <Text style={styles.appSubtitle}>Aprende el alfabeto de señas</Text>
-            </View>
+          <Image source={icon} style={{
+            marginTop: 80,
+            marginBottom: 10,
+            width: 150,
+            height: 150,
+            borderRadius: 75,
+          }} />
+          <Text style={styles.appSubtitle}>Aprende el alfabeto de señas</Text>
+        </View>
         
-
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
           <Text style={styles.welcomeTitle}>¡Bienvenido!</Text>
@@ -160,7 +146,7 @@ const HomeScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Quick Start */}
+        {/* Quick Start - ALFABETO */}
         <TouchableOpacity 
           style={styles.quickStartCard}
           onPress={() => navigation.navigate('AlphabetDetection')}
@@ -171,11 +157,32 @@ const HomeScreen = ({ navigation }) => {
               <Ionicons name="play" size={30} color="#000" />
             </View>
             <View style={styles.quickStartText}>
-              <Text style={styles.quickStartTitle}>Empezar Ahora</Text>
+              <Text style={styles.quickStartTitle}>Detección de Alfabeto</Text>
               <Text style={styles.quickStartSubtitle}>
-                Inicia la detección de letras
+                Practica letras A-Z
               </Text>
             </View>
+            <Ionicons name="chevron-forward" size={24} color="rgba(0,0,0,0.5)" />
+          </View>
+        </TouchableOpacity>
+
+        {/* ✅ NUEVO: Quick Start - NÚMEROS */}
+        <TouchableOpacity 
+          style={styles.quickStartCardSecondary}
+          onPress={() => navigation.navigate('NumberDetection')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.quickStartContent}>
+            <View style={styles.quickStartIconSecondary}>
+              <Ionicons name="keypad-outline" size={30} color="#4A90E2" />
+            </View>
+            <View style={styles.quickStartText}>
+              <Text style={styles.quickStartTitleSecondary}>Detección de Números</Text>
+              <Text style={styles.quickStartSubtitleSecondary}>
+                Practica números del 0 al 9
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
           </View>
         </TouchableOpacity>
 
@@ -263,9 +270,21 @@ const styles = StyleSheet.create({
   
   quickStartCard: {
     margin: 20,
+    marginBottom: 12,
     backgroundColor: '#00FF88',
     borderRadius: 16,
     padding: 20,
+  },
+  
+  // ✅ NUEVO: Estilo para card de números
+  quickStartCardSecondary: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#4A90E2',
   },
   
   quickStartContent: {
@@ -277,6 +296,17 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  
+  // ✅ NUEVO: Ícono para card de números
+  quickStartIconSecondary: {
+    width: 60,
+    height: 60,
+    backgroundColor: 'rgba(74, 144, 226, 0.2)',
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
@@ -295,6 +325,19 @@ const styles = StyleSheet.create({
   
   quickStartSubtitle: {
     color: 'rgba(0, 0, 0, 0.7)',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  
+  // ✅ NUEVO: Títulos para card de números
+  quickStartTitleSecondary: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  
+  quickStartSubtitleSecondary: {
+    color: '#CCCCCC',
     fontSize: 14,
     marginTop: 2,
   },

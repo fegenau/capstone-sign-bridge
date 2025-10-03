@@ -1,17 +1,7 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 
-const { width } = Dimensions.get('window');
-
-const NumberGrid = ({ detectedNumber, onNumberPress }) => {
-  // Números del 0 al 9
+function NumberGrid({ detectedNumber, onNumberPress }) {
   const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   return (
@@ -33,24 +23,16 @@ const NumberGrid = ({ detectedNumber, onNumberPress }) => {
             onPress={() => onNumberPress && onNumberPress(number)}
             activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.numberText,
-                detectedNumber === number && styles.numberTextActive,
-              ]}
-            >
+            <Text style={[styles.numberText, detectedNumber === number && styles.numberTextActive]}>
               {number}
             </Text>
-            
-            {detectedNumber === number && (
-              <View style={styles.activeIndicator} />
-            )}
+            {detectedNumber === number && <View style={styles.activeIndicator} />}
           </TouchableOpacity>
         ))}
       </ScrollView>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
