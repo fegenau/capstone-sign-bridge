@@ -11,19 +11,16 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import DetectionOverlay from '../components/camera/DetectionOverlay';
-import { detectionService } from '../utils/services/detectionService';
 
-const AlphabetDetectionScreen = ({ navigation }) => {
+const NumberDetectionScreen = ({ navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
   const [isLoading, setIsLoading] = useState(true);
-  const [detectedLetter, setDetectedLetter] = useState(null);
+  const [detectedNumber, setDetectedNumber] = useState(null);
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
   const cameraRef = useRef(null);
-  // Web-specific
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
   const videoRef = useRef(null);
@@ -49,7 +46,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       };
       getWebcam();
       return () => {
-        detectionService.stopDetection();
+        stopDetection();
         if (webStream) {
           webStream.getTracks().forEach(track => track.stop());
         }
@@ -61,32 +58,28 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       }, 1000);
       return () => {
         clearTimeout(timer);
-        detectionService.stopDetection();
+        stopDetection();
       };
     }
-  }, []);
-  useEffect(() => {
-    const handleDetectionResult = (result) => {
-      if (result.isProcessing !== undefined) {
-        setIsProcessing(result.isProcessing);
-      }
-      if (result.letter !== undefined) {
-        setDetectedLetter(result.letter);
-        setConfidence(result.confidence || 0);
-      }
-    };
-
-    detectionService.onDetection(handleDetectionResult);
-    return () => {
-      detectionService.offDetection(handleDetectionResult);
-    };
   }, []);
 
   const startDetection = async () => {
     try {
       setIsDetectionActive(true);
-      await detectionService.startDetection();
-      console.log('Detección iniciada');
+      setIsProcessing(true);
+      
+      // Mock de detección de números cada 2 segundos
+      const interval = setInterval(() => {
+        const randomNumber = Math.floor(Math.random() * 10); // 0-9
+        const randomConfidence = Math.floor(Math.random() * 40) + 60; // 60-100%
+        
+        setDetectedNumber(randomNumber);
+        setConfidence(randomConfidence);
+        
+        console.log(`📊 Número: ${randomNumber} (${randomConfidence}%)`);
+      }, 2000);
+
+      return () => clearInterval(interval);
     } catch (error) {
       console.error('Error al iniciar detección:', error);
       Alert.alert('Error', 'No se pudo iniciar la detección');
@@ -96,22 +89,12 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const stopDetection = () => {
     try {
       setIsDetectionActive(false);
-      detectionService.stopDetection();
-      setDetectedLetter(null);
+      setDetectedNumber(null);
       setConfidence(0);
       setIsProcessing(false);
       console.log('Detección detenida');
     } catch (error) {
       console.error('Error al detener detección:', error);
-    }
-  };
-
-  const forceDetection = async () => {
-    try {
-      await detectionService.forceDetection();
-    } catch (error) {
-      console.error('Error en detección manual:', error);
-      Alert.alert('Error', 'Error en detección manual');
     }
   };
 
@@ -127,10 +110,10 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     }
   };
 
-  const handleLetterPress = (letter) => {
+  const handleNumberPress = (number) => {
     Alert.alert(
-      `Letra ${letter}`,
-      `Has seleccionado la letra ${letter}. Esta función se expandirá para mostrar más información sobre cómo hacer esta letra.`,
+      `Número ${number}`,
+      `Has seleccionado el número ${number}. Esta función se expandirá para mostrar más información.`,
       [{ text: 'OK', style: 'default' }]
     );
   };
@@ -173,7 +156,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
           <Ionicons name="camera-off" size={80} color="#FF4444" />
           <Text style={styles.errorText}>Sin acceso a la cámara</Text>
           <Text style={styles.subtitleText}>
-            SignBridge necesita acceso a la cámara para detectar letras
+            SignBridge necesita acceso a la cámara para detectar números
           </Text>
           <TouchableOpacity style={styles.button} onPress={requestPermission}>
             <Text style={styles.buttonText}>Solicitar permisos</Text>
@@ -188,19 +171,19 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       <StatusBar style="light" />
       
       {/* Header */}
-<View style={styles.header}>
-  <TouchableOpacity 
-    style={styles.backButton}
-    onPress={() => navigation.goBack()}
-  >
-    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-  </TouchableOpacity>
-  <View style={styles.headerContent}>
-    <Text style={styles.headerTitle}>SignBridge</Text>
-    <Text style={styles.headerSubtitle}>Detección de Alfabeto</Text>
-  </View>
-  <View style={styles.headerSpacer} />
-</View>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>SignBridge</Text>
+          <Text style={styles.headerSubtitle}>Detección de Números</Text>
+        </View>
+        <View style={styles.headerSpacer} />
+      </View>
 
       {/* Vista de Cámara multiplataforma */}
       <View style={styles.cameraContainer}>
@@ -212,15 +195,38 @@ const AlphabetDetectionScreen = ({ navigation }) => {
               playsInline
               muted
               style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222' }}
-              id="webcam-video-alphabet"
+              id="webcam-video-numbers"
             />
             {/* Overlay de detección */}
-            <DetectionOverlay
-              detectedLetter={detectedLetter}
-              confidence={confidence}
-              isProcessing={isProcessing}
-              isVisible={true}
-            />
+            {isProcessing && detectedNumber !== null && confidence > 60 ? (
+              <View style={styles.detectionOverlay}>
+                <View style={styles.detectionBox}>
+                  <Text style={styles.detectedText}>{detectedNumber}</Text>
+                  <View style={styles.confidenceContainer}>
+                    <View 
+                      style={[
+                        styles.confidenceBar, 
+                        { 
+                          width: `${confidence}%`,
+                          backgroundColor: 
+                            confidence > 80 ? '#00FF88' :
+                            confidence > 60 ? '#FFD700' : '#FF6B6B'
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.confidenceText}>{confidence}% confianza</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.detectionOverlay}>
+                <View style={styles.waitingBox}>
+                  <Text style={styles.waitingText}>
+                    {isProcessing ? 'Muestra un número' : 'Pausado'}
+                  </Text>
+                </View>
+              </View>
+            )}
           </>
         ) : (
           <>
@@ -230,14 +236,38 @@ const AlphabetDetectionScreen = ({ navigation }) => {
               ref={cameraRef}
             />
             {/* Overlay de detección */}
-            <DetectionOverlay
-              detectedLetter={detectedLetter}
-              confidence={confidence}
-              isProcessing={isProcessing}
-              isVisible={true}
-            />
+            {isProcessing && detectedNumber !== null && confidence > 60 ? (
+              <View style={styles.detectionOverlay}>
+                <View style={styles.detectionBox}>
+                  <Text style={styles.detectedText}>{detectedNumber}</Text>
+                  <View style={styles.confidenceContainer}>
+                    <View 
+                      style={[
+                        styles.confidenceBar, 
+                        { 
+                          width: `${confidence}%`,
+                          backgroundColor: 
+                            confidence > 80 ? '#00FF88' :
+                            confidence > 60 ? '#FFD700' : '#FF6B6B'
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.confidenceText}>{confidence}% confianza</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.detectionOverlay}>
+                <View style={styles.waitingBox}>
+                  <Text style={styles.waitingText}>
+                    {isProcessing ? 'Muestra un número' : 'Pausado'}
+                  </Text>
+                </View>
+              </View>
+            )}
           </>
         )}
+
         {/* Frame guía */}
         <View style={styles.frameGuide}>
           <View style={styles.corner} />
@@ -250,6 +280,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
             </Text>
           </View>
         </View>
+
         {/* Indicador de estado */}
         <View style={styles.statusContainer}>
           <View style={styles.statusIndicator}>
@@ -265,18 +296,13 @@ const AlphabetDetectionScreen = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Controles actualizados */}
+      {/* Controles */}
       <View style={styles.controls}>
         <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
           <Ionicons name="camera-reverse" size={24} color="#fff" />
           <Text style={styles.controlButtonText}>
             {facing === 'back' ? 'Frontal' : 'Trasera'}
           </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.controlButton} onPress={forceDetection}>
-          <Ionicons name="refresh" size={24} color="#00FF88" />
-          <Text style={styles.controlButtonText}>Detectar</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.controlButton} onPress={toggleDetection}>
@@ -311,37 +337,37 @@ const AlphabetDetectionScreen = ({ navigation }) => {
           </Text>
         </View>
         
-        {detectedLetter && (
+        {detectedNumber !== null && (
           <View style={styles.statusItem}>
             <Ionicons name="checkmark-circle" size={16} color="#00FF88" />
             <Text style={styles.statusItemText}>
-              Detectada: {detectedLetter} ({confidence}%)
+              Detectado: {detectedNumber} ({confidence}%)
             </Text>
           </View>
         )}
       </View>
 
-      {/* Panel de alfabeto */}
-      <View style={styles.alphabetPanel}>
-        <Text style={styles.alphabetTitle}>
-          Alfabeto de Referencia {detectedLetter ? `- ${detectedLetter}` : ''}
+      {/* Panel de números */}
+      <View style={styles.numbersPanel}>
+        <Text style={styles.numbersTitle}>
+          Números de Referencia {detectedNumber !== null ? `- ${detectedNumber}` : ''}
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.alphabetRow}>
-            {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'].map((letter) => (
+          <View style={styles.numbersRow}>
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => (
               <TouchableOpacity
-                key={letter}
+                key={number}
                 style={[
-                  styles.letterBox,
-                  detectedLetter === letter && styles.letterBoxActive
+                  styles.numberBox,
+                  detectedNumber === number && styles.numberBoxActive
                 ]}
-                onPress={() => handleLetterPress(letter)}
+                onPress={() => handleNumberPress(number)}
               >
                 <Text style={[
-                  styles.letterText,
-                  detectedLetter === letter && styles.letterTextActive
+                  styles.numberText,
+                  detectedNumber === number && styles.numberTextActive
                 ]}>
-                  {letter}
+                  {number}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -366,12 +392,27 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   headerTitle: {
     color: '#FFFFFF',
@@ -392,18 +433,72 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
+  detectionOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  detectionBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#00FF88',
+  },
+  detectedText: {
+    fontSize: 100,
+    fontWeight: 'bold',
+    color: '#00FF88',
+    marginBottom: 10,
+  },
+  confidenceContainer: {
+    width: 200,
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  confidenceBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  confidenceText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  waitingBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 20,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  waitingText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
   frameGuide: {
     position: 'absolute',
     top: '20%',
     left: '10%',
     right: '10%',
     bottom: '35%',
+    pointerEvents: 'none',
   },
   corner: {
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: '#00FF88',
+    borderColor: '#4A90E2',
     borderWidth: 3,
     borderTopWidth: 3,
     borderLeftWidth: 3,
@@ -453,6 +548,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 20,
+    pointerEvents: 'none',
   },
   statusIndicator: {
     flexDirection: 'row',
@@ -523,32 +619,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  
-  buttonContainer: {
-    marginTop: 30,
-    width: '100%',
-    alignItems: 'center',
-  },
-  
-  buttonSecondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#00FF88',
-    marginTop: 15,
-  },
-  
-  buttonTextSecondary: {
-    color: '#00FF88',
-  },
-  
-  errorDetailText: {
-    color: '#FFB800',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 15,
-    marginHorizontal: 20,
-    lineHeight: 18,
-  },
   statusPanel: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     paddingVertical: 8,
@@ -566,57 +636,46 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 8,
   },
-  alphabetPanel: {
+  numbersPanel: {
     backgroundColor: '#1a1a1a',
     padding: 15,
     borderTopWidth: 1,
     borderTopColor: '#333',
   },
-  alphabetTitle: {
+  numbersTitle: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
   },
-  alphabetRow: {
+  numbersRow: {
     flexDirection: 'row',
     paddingHorizontal: 5,
   },
-  letterBox: {
-    width: 35,
-    height: 35,
+  numberBox: {
+    width: 50,
+    height: 50,
     backgroundColor: '#333',
-    margin: 2,
-    borderRadius: 8,
+    margin: 4,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  letterBoxActive: {
-    backgroundColor: '#00FF88',
-    transform: [{ scale: 1.1 }],
+  numberBoxActive: {
+    backgroundColor: '#4A90E2',
+    transform: [{ scale: 1.15 }],
+    borderWidth: 2,
+    borderColor: '#fff',
   },
-  letterText: {
+  numberText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: 'bold',
   },
-  letterTextActive: {
-    color: '#000',
+  numberTextActive: {
+    color: '#fff',
   },
-  backButton: {
-  width: 40,
-  height: 40,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-headerContent: {
-  flex: 1,
-  alignItems: 'center',
-},
-headerSpacer: {
-  width: 40,
-},
 });
 
-export default AlphabetDetectionScreen;
+export default NumberDetectionScreen;
