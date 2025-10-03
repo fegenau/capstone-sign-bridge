@@ -21,8 +21,6 @@ const NumberDetectionScreen = ({ navigation }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
   const cameraRef = useRef(null);
-  
-  // Web-specific
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
   const videoRef = useRef(null);
