@@ -115,6 +115,19 @@ const HomeScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  <TouchableOpacity
+  style={styles.menuCard}
+  onPress={() => navigation.navigate('NumberDetection')}
+>
+  <Ionicons name="keypad-outline" size={48} color="#4A90E2" />
+  <View style={styles.cardContent}>
+    <Text style={styles.menuCardTitle}>Detección de Números</Text>
+    <Text style={styles.menuCardSubtitle}>Practica números del 0 al 9</Text>
+  </View>
+  <Ionicons name="chevron-forward" size={24} color="#999" />
+</TouchableOpacity>
+
+
   const icon = require('../assets/images/IconSignBridge.png');
 
   return (

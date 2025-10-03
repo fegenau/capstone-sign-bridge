@@ -23,16 +23,47 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
   const cameraRef = useRef(null);
+  // Web-specific
+  const [webStream, setWebStream] = useState(null);
+  const [webError, setWebError] = useState(null);
+  const videoRef = useRef(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-      startDetection();
-    }, 1000);
-    return () => {
-      clearTimeout(timer);
-      detectionService.stopDetection();
-    };
+    if (Platform.OS === 'web') {
+      setIsLoading(true);
+      const getWebcam = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setWebStream(stream);
+          setWebError(null);
+          setIsLoading(false);
+          setIsDetectionActive(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+          startDetection();
+        } catch (err) {
+          setWebError('No se pudo acceder a la cámara.');
+          setIsLoading(false);
+        }
+      };
+      getWebcam();
+      return () => {
+        detectionService.stopDetection();
+        if (webStream) {
+          webStream.getTracks().forEach(track => track.stop());
+        }
+      };
+    } else {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+        startDetection();
+      }, 1000);
+      return () => {
+        clearTimeout(timer);
+        detectionService.stopDetection();
+      };
+    }
   }, []);
   useEffect(() => {
     const handleDetectionResult = (result) => {
@@ -114,30 +145,42 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     );
   }
 
-  if (!permission) {
-    return (
-      <View style={styles.centerContainer}>
-        <StatusBar style="light" />
-        <Ionicons name="camera" size={80} color="#FFB800" />
-        <Text style={styles.loadingText}>Verificando permisos...</Text>
-      </View>
-    );
-  }
-
-  if (!permission.granted) {
-    return (
-      <View style={styles.centerContainer}>
-        <StatusBar style="light" />
-        <Ionicons name="camera-off" size={80} color="#FF4444" />
-        <Text style={styles.errorText}>Sin acceso a la cámara</Text>
-        <Text style={styles.subtitleText}>
-          SignBridge necesita acceso a la cámara para detectar letras
-        </Text>
-        <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Solicitar permisos</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  if (Platform.OS === 'web') {
+    if (webError) {
+      return (
+        <View style={styles.centerContainer}>
+          <StatusBar style="light" />
+          <Ionicons name="camera-off" size={80} color="#FF4444" />
+          <Text style={styles.errorText}>Sin acceso a la cámara</Text>
+          <Text style={styles.subtitleText}>{webError}</Text>
+        </View>
+      );
+    }
+  } else {
+    if (!permission) {
+      return (
+        <View style={styles.centerContainer}>
+          <StatusBar style="light" />
+          <Ionicons name="camera" size={80} color="#FFB800" />
+          <Text style={styles.loadingText}>Verificando permisos...</Text>
+        </View>
+      );
+    }
+    if (!permission.granted) {
+      return (
+        <View style={styles.centerContainer}>
+          <StatusBar style="light" />
+          <Ionicons name="camera-off" size={80} color="#FF4444" />
+          <Text style={styles.errorText}>Sin acceso a la cámara</Text>
+          <Text style={styles.subtitleText}>
+            SignBridge necesita acceso a la cámara para detectar letras
+          </Text>
+          <TouchableOpacity style={styles.button} onPress={requestPermission}>
+            <Text style={styles.buttonText}>Solicitar permisos</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
   }
 
   return (
@@ -159,43 +202,61 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   <View style={styles.headerSpacer} />
 </View>
 
-      {/* Vista de Cámara */}
+      {/* Vista de Cámara multiplataforma */}
       <View style={styles.cameraContainer}>
-        <CameraView
-          style={styles.camera}
-          facing={facing}
-          ref={cameraRef}
-        />
-        
+        {Platform.OS === 'web' ? (
+          <>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222' }}
+              id="webcam-video-alphabet"
+            />
+            {/* Overlay de detección */}
+            <DetectionOverlay
+              detectedLetter={detectedLetter}
+              confidence={confidence}
+              isProcessing={isProcessing}
+              isVisible={true}
+            />
+          </>
+        ) : (
+          <>
+            <CameraView
+              style={styles.camera}
+              facing={facing}
+              ref={cameraRef}
+            />
+            {/* Overlay de detección */}
+            <DetectionOverlay
+              detectedLetter={detectedLetter}
+              confidence={confidence}
+              isProcessing={isProcessing}
+              isVisible={true}
+            />
+          </>
+        )}
         {/* Frame guía */}
         <View style={styles.frameGuide}>
           <View style={styles.corner} />
           <View style={[styles.corner, styles.cornerTopRight]} />
           <View style={[styles.corner, styles.cornerBottomLeft]} />
           <View style={[styles.corner, styles.cornerBottomRight]} />
-          
           <View style={styles.guideTextContainer}>
             <Text style={styles.guideText}>
               Coloca tu mano dentro del marco
             </Text>
           </View>
         </View>
-
-        {/* Overlay de detección - NUEVO COMPONENTE */}
-        <DetectionOverlay
-          detectedLetter={detectedLetter}
-          confidence={confidence}
-          isProcessing={isProcessing}
-          isVisible={true}
-        />
-
         {/* Indicador de estado */}
         <View style={styles.statusContainer}>
           <View style={styles.statusIndicator}>
-            <Ionicons 
-              name={isDetectionActive ? "camera" : "camera-off"} 
-              size={16} 
-              color={isDetectionActive ? "#00FF88" : "#FFB800"} 
+            <Ionicons
+              name={isDetectionActive ? "camera" : "camera-off"}
+              size={16}
+              color={isDetectionActive ? "#00FF88" : "#FFB800"}
             />
             <Text style={styles.statusText}>
               {isDetectionActive ? 'Detectando' : 'Pausado'}
