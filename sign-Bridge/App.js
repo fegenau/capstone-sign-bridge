@@ -8,6 +8,7 @@ import SplashScreen from './screens/SplashScreen';
 import HomeScreen from './screens/HomeScreen';
 import AlphabetDetectionScreen from './screens/AlphabetDetectionScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import NumberDetectionScreen from './screens/NumberDetectionScreen';
 
 const Stack = createStackNavigator();
 
@@ -96,7 +97,21 @@ const App = () => {
               headerShown: false,
             }}
           />
-          
+          <Stack.Screen 
+            name="NumberDetection" 
+            component={NumberDetectionScreen}
+            options={{ 
+              title: 'Detección de Números',
+              headerStyle: {
+                backgroundColor: '#4A90E2',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
+            }}
+          />
+
           {/* Settings Screen */}
           <Stack.Screen 
             name="Settings" 
