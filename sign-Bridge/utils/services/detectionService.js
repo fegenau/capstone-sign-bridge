@@ -1,9 +1,5 @@
-// src/utils/services/detectionService.js
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-react-native';
-import * as FileSystem from 'expo-file-system';
-import { decodeJpeg } from '@tensorflow/tfjs-react-native';
-import { initializeTensorFlow } from './tensorflowInit';
+// utils/services/detectionService.js
+// Versión inicial: servicio de detección simulado listo para integrar un modelo real
 
 // Alfabeto disponible para detección
 const ALPHABET = [
@@ -15,339 +11,217 @@ const ALPHABET = [
 const DETECTION_CONFIG = {
   minConfidence: 30,      // Confianza mínima para mostrar resultado
   maxConfidence: 95,      // Confianza máxima realista
-  modelPath: require('../../assets/Modelo/runs/detect/train/weights/best.pt'), // Ruta al modelo TFLite
-  inputSize: 224,         // Tamaño de entrada esperado por el modelo
-  detectionInterval: 1000 // Intervalo entre detecciones en ms
-
+  // Ruta del modelo (.tflite) en assets (referencia futura; no se carga en esta versión)
+  modelPath: 'assets/Modelo/runs/detect/train/weights/best_saved_model/best_float32.tflite',
+  inputSize: 224,         // Tamaño de entrada esperado por el modelo (para futura integración)
+  detectionInterval: 1500 // Intervalo entre detecciones en ms (simulación)
 };
 
 /**
- * Servicio principal de detección
+ * Servicio principal de detección (primera versión con simulación)
+ * API pública usada por AlphabetDetectionScreen:
+ * - onDetection(cb), offDetection(cb)
+ * - startDetection(), stopDetection(), forceDetection(imageData?)
+ * - getStatus()
  */
+import { Platform } from 'react-native';
+import { fastTfliteService } from './fastTfliteService';
+import { tfliteNativeService } from './tfliteNativeService';
+
 export class DetectionService {
   constructor() {
-    this.isActive = false;
+    this.isActive = true;
     this.callbacks = [];
     this.model = null;
     this.isModelLoaded = false;
+    this._timer = null;
+    this._lastLetter = null;
   }
 
-  /**
-   * Registra un callback para recibir resultados de detección
-   * @param {Function} callback - Función a llamar con resultados
-   */
+  // Registro de callbacks
   onDetection(callback) {
-    this.callbacks.push(callback);
+    if (typeof callback === 'function') {
+      this.callbacks.push(callback);
+    }
   }
 
-  /**
-   * Desregistra un callback
-   * @param {Function} callback - Función a remover
-   */
   offDetection(callback) {
     this.callbacks = this.callbacks.filter(cb => cb !== callback);
   }
 
-  /**
-   * Notifica a todos los callbacks registrados
-   * @param {Object} result - Resultado de detección
-   */
   notifyCallbacks(result) {
-    this.callbacks.forEach(callback => {
-      try {
-        callback(result);
-      } catch (error) {
-        console.error('Error en callback de detección:', error);
-      }
+    this.callbacks.forEach(cb => {
+      try { cb(result); } catch (e) { console.error('Error en callback de detección:', e); }
     });
   }
 
-  /**
-   * Carga el modelo TensorFlow Lite
-   */
+  // Carga del modelo (placeholder .tflite)
   async loadModel() {
-    if (this.isModelLoaded) {
-      console.log('🧠 Modelo ya está cargado');
-      return;
+    if (this.isModelLoaded) return;
+
+    // Intentar cargar fast-tflite en iOS/Android; luego react-native-tflite; luego simulación
+    let loadedNative = false;
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      try {
+        const modelPath = 'models/best_float32.tflite';
+        // 1) fast-tflite
+        try {
+          const loadedFast = await fastTfliteService.loadModel({ modelPath });
+          if (loadedFast) {
+            this.model = { type: 'fast-tflite', path: modelPath };
+            this.isModelLoaded = true;
+            console.log('⚡ fast-tflite cargado');
+            loadedNative = true;
+          }
+        } catch {}
+        // 2) react-native-tflite
+        if (!loadedNative) {
+          const loadedOld = await tfliteNativeService.loadModel({ modelPath });
+          if (loadedOld) {
+            this.model = { type: 'tflite-native', path: modelPath };
+            this.isModelLoaded = true;
+            console.log('🤖 TFLite nativo (legacy) cargado');
+            loadedNative = true;
+          }
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar TFLite nativo, se usará simulación. Detalle:', e?.message || e);
+      }
     }
 
-    try {
-      console.log('🧠 Cargando modelo CNN...', DETECTION_CONFIG.modelPath);
-      
-      // Inicializar TensorFlow.js
-      await initializeTensorFlow();
-      
-      console.log('📂 Verificando modelo TFLite...');
-      
-      // Verificar si el archivo existe
-      const modelInfo = await FileSystem.getInfoAsync(DETECTION_CONFIG.modelPath);
-      
-      if (!modelInfo.exists) {
-        throw new Error(`Modelo no encontrado en: ${DETECTION_CONFIG.modelPath}`);
-      }
-      
-      console.log('📁 Modelo encontrado, tamaño:', modelInfo.size, 'bytes');
-      
-      // NOTA: Los archivos .tflite no se pueden cargar directamente con TensorFlow.js
-      // Necesitamos convertir el modelo a formato compatible o usar una librería específica
-      
-      // Por ahora, marcamos como cargado para permitir el desarrollo
-      console.log('⚠️  ADVERTENCIA: Usando modo de desarrollo - modelo .tflite detectado pero no cargado');
-      console.log('📋 Para producción, convertir el modelo a formato TensorFlow.js (.json + .bin)');
-      
-      // Simular carga exitosa para desarrollo
+    // Fallback simulación
+    if (!loadedNative) {
       this.model = {
         type: 'tflite-placeholder',
-        path: DETECTION_CONFIG.modelPath,
-        size: modelInfo.size
+        path: DETECTION_CONFIG.modelPath
       };
-      console.log('🧠 Modelo cargado desde:', modelUri);
-      
-      // Información del modelo
-      console.log('📊 Información del modelo:');
-      console.log('- Entradas:', this.model.inputs.map(input => ({
-        name: input.name,
-        shape: input.shape,
-        dtype: input.dtype
-      })));
-      console.log('- Salidas:', this.model.outputs.map(output => ({
-        name: output.name,
-        shape: output.shape,
-        dtype: output.dtype
-      })));
-      
       this.isModelLoaded = true;
-      console.log('✅ Modelo CNN cargado exitosamente');
-      
-      this.notifyCallbacks({ 
-        modelLoaded: true, 
-        isProcessing: false 
-      });
-      
-    } catch (error) {
-      console.error('❌ Error cargando modelo:', error);
-      this.notifyCallbacks({ 
-        modelLoaded: false, 
-        error: `Error cargando modelo: ${error.message}` 
-      });
-      throw error;
+      console.log('🧠 Modo simulación: modelo placeholder listo en', DETECTION_CONFIG.modelPath);
     }
+
+    this.notifyCallbacks({ modelLoaded: true, isProcessing: false });
   }
 
-  /**
-   * Preprocesa la imagen para el modelo CNN
-   * @param {string} imageUri - URI de la imagen
-   * @returns {Promise<tf.Tensor>} Tensor procesado listo para predicción
-   */
-  async preprocessImage(imageUri) {
-    try {
-      // Leer imagen desde URI
-      let imageTensor;
-      
-      if (imageUri.startsWith('data:')) {
-        // Si es base64, decodificar directamente
-        const response = await fetch(imageUri);
-        const imageBlob = await response.blob();
-        imageTensor = decodeJpeg(new Uint8Array(await imageBlob.arrayBuffer()));
-      } else {
-        // Si es URI de archivo, leer desde FileSystem
-        const base64 = await FileSystem.readAsStringAsync(imageUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        const binaryString = atob(base64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        imageTensor = decodeJpeg(bytes);
-      }
-      
-      // Redimensionar la imagen al tamaño esperado por el modelo (224x224 típicamente)
-      const resized = tf.image.resizeBilinear(imageTensor, [224, 224]);
-      
-      // Normalizar píxeles a rango [0, 1]
-      const normalized = resized.div(255.0);
-      
-      // Expandir dimensiones para batch (agregar dimensión batch de 1)
-      const batched = normalized.expandDims(0);
-      
-      // Limpiar tensores intermedios para liberar memoria
-      imageTensor.dispose();
-      resized.dispose();
-      normalized.dispose();
-      
-      return batched;
-      
-    } catch (error) {
-      console.error('Error en preprocesamiento de imagen:', error);
-      throw error;
+  // Simulación de predicción
+  async _simulatePrediction() {
+    // Evitar repetir la misma letra 2 veces seguidas si es posible
+    let idx = Math.floor(Math.random() * ALPHABET.length);
+    if (this._lastLetter && ALPHABET[idx] === this._lastLetter) {
+      idx = (idx + 1) % ALPHABET.length;
     }
+
+    const confidence = Math.round(70 + Math.random() * 30); // 70–100
+    const result = {
+      letter: ALPHABET[idx],
+      confidence,
+      timestamp: Date.now(),
+      source: 'cnn-model-simulation',
+      isSimulation: true
+    };
+    this._lastLetter = result.letter;
+    return result;
   }
 
-  /**
-   * Procesa una imagen con el modelo CNN para detectar letras
-   * @param {string|object} imageData - Datos de imagen (URI, base64, etc.)
-   * @returns {Promise<object>} Resultado de predicción { letter, confidence }
-   */
+  // Predicción (si hay modelo real, aquí se integrará)
   async predictLetter(imageData) {
-    if (!this.isModelLoaded) {
-      throw new Error('Modelo no está cargado');
+    if (!this.isModelLoaded) throw new Error('Modelo no está cargado');
+
+    // fast-tflite
+    if (this.model?.type === 'fast-tflite') {
+      if (!imageData?.uri) return null;
+      // Aún no implementado el pipeline de preprocesamiento/postprocesado
+      // Mantener retorno null para no romper UI hasta que se implemente
+      const res = await fastTfliteService.predictFromImageUri(imageData.uri, { threshold: 0.5 });
+      if (!res) return null;
+      const letter = String(res.label || '').toUpperCase();
+      const result = {
+        letter,
+        confidence: res.confidence,
+        timestamp: Date.now(),
+        source: 'fast-tflite',
+        isSimulation: false,
+      };
+      this.notifyCallbacks({ isProcessing: false, ...result });
+      return result;
     }
 
-    try {
-      console.log('🔍 Procesando imagen con modelo CNN...');
-      
-      this.notifyCallbacks({ isProcessing: true });
-      
-      // Verificar si estamos en modo desarrollo con .tflite
-      if (this.model.type === 'tflite-placeholder') {
-        console.log('🔧 Modo desarrollo - simulando predicción con modelo .tflite');
-        
-        // Simular tiempo de procesamiento real
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Generar predicción simulada realista
-        const predictions = new Array(26).fill(0).map(() => Math.random() * 0.1);
-        const randomIndex = Math.floor(Math.random() * 26);
-        predictions[randomIndex] = 0.7 + Math.random() * 0.3; // Confianza alta para letra seleccionada
-        
-        const predictedLetter = ALPHABET[randomIndex];
-        const confidence = Math.round(predictions[randomIndex] * 100);
-        
-        const result = {
-          letter: predictedLetter,
-          confidence: confidence,
-          timestamp: Date.now(),
-          source: 'cnn-model-simulation',
-          rawPredictions: predictions,
-          isSimulation: true
-        };
-        
-        console.log('✅ Predicción simulada completada:', {
-          letter: result.letter,
-          confidence: result.confidence,
-          note: 'Usando simulación - convertir .tflite para predicciones reales'
-        });
-        
-        this.notifyCallbacks({
-          isProcessing: false,
-          ...result
-        });
-        
-        return result;
+    // TFLite nativo (react-native-tflite)
+    if (this.model?.type === 'tflite-native') {
+      // Requiere una imagen (uri) desde la cámara o un snapshot
+      if (!imageData?.uri) {
+        // Sin imagen: no emitir nada
+        return null;
       }
-      
-      // Código original para modelos TensorFlow.js reales
-      // 1. Preprocesar imagen
-      const inputTensor = await this.preprocessImage(imageData);
-      
-      // 2. Ejecutar predicción
-      const prediction = this.model.predict(inputTensor);
-      
-      // 3. Post-procesar resultados
-      const predictions = await prediction.data();
-      
-      // Encontrar la clase con mayor probabilidad
-      let maxProbability = 0;
-      let predictedClass = 0;
-      
-      for (let i = 0; i < predictions.length; i++) {
-        if (predictions[i] > maxProbability) {
-          maxProbability = predictions[i];
-          predictedClass = i;
-        }
-      }
-      
-      // Convertir índice de clase a letra
-      const predictedLetter = ALPHABET[predictedClass] || 'UNKNOWN';
-      const confidence = Math.round(maxProbability * 100);
-      
-      // Limpiar tensores para liberar memoria
-      inputTensor.dispose();
-      prediction.dispose();
-      
+      const res = await tfliteNativeService.predictFromImageUri(imageData.uri, { threshold: 0.5 });
+      if (!res) return null;
+      const letter = String(res.label || '').toUpperCase();
       const result = {
-        letter: predictedLetter,
-        confidence: confidence,
+        letter,
+        confidence: res.confidence,
         timestamp: Date.now(),
-        source: 'cnn-model',
-        rawPredictions: Array.from(predictions)
+        source: 'tflite-native',
+        isSimulation: false,
       };
-      
-      console.log('✅ Predicción completada:', {
-        letter: result.letter,
-        confidence: result.confidence,
-        topPredictions: Array.from(predictions)
-          .map((prob, index) => ({ letter: ALPHABET[index], confidence: Math.round(prob * 100) }))
-          .sort((a, b) => b.confidence - a.confidence)
-          .slice(0, 3)
-      });
-      
-      this.notifyCallbacks({
-        isProcessing: false,
-        ...result
-      });
-      
+      this.notifyCallbacks({ isProcessing: false, ...result });
       return result;
-      
-    } catch (error) {
-      console.error('❌ Error en predicción:', error);
-      this.notifyCallbacks({
-        isProcessing: false,
-        error: `Error en predicción: ${error.message}`
-      });
-      throw error;
+    }
+
+    // Placeholder .tflite: usar simulación
+    if (this.model?.type === 'tflite-placeholder') {
+      // simulamos un pequeño tiempo de procesamiento
+      await new Promise(r => setTimeout(r, 300));
+      const result = await this._simulatePrediction();
+      this.notifyCallbacks({ isProcessing: false, ...result });
+      return result;
+    }
+
+    // Implementación real se agregará en siguientes iteraciones
+    throw new Error('Predicción real no implementada en esta versión');
+  }
+
+  // Loop de detección automática (simulación)
+  _startAutoLoop() {
+    this._stopAutoLoop();
+    this._timer = setInterval(async () => {
+      if (!this.isActive) return;
+      try {
+        await this.predictLetter(null);
+      } catch (e) {
+        console.error('Error en loop de detección:', e);
+      }
+    }, DETECTION_CONFIG.detectionInterval);
+  }
+
+  _stopAutoLoop() {
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
     }
   }
 
-  /**
-   * Inicia la detección con modelo real
-   */
+  // Inicio/fin del servicio
   async startDetection() {
     if (this.isActive) {
       console.warn('DetectionService ya está activo');
       return;
     }
+    this.isActive = true;
+    this.notifyCallbacks({ isProcessing: false, isLive: true, modelReady: this.isModelLoaded });
 
-    try {
-      this.isActive = true;
-      console.log('🎯 DetectionService iniciado - modelo CNN');
-      
-      // Cargar el modelo CNN
-      await this.loadModel();
-      
-      // Notificar que el servicio está en vivo
-      this.notifyCallbacks({ 
-        isProcessing: false, 
-        isLive: true, 
-        modelReady: this.isModelLoaded 
-      });
-      
-    } catch (error) {
-      console.error('Error iniciando DetectionService:', error);
-      this.isActive = false;
-      this.notifyCallbacks({ 
-        isProcessing: false, 
-        error: `Error iniciando servicio: ${error.message}` 
-      });
-      throw error;
-    }
+    await this.loadModel();
+    this.notifyCallbacks({ isProcessing: false, isLive: true, modelReady: this.isModelLoaded });
+
+    // Iniciar loop de simulación
+    this._startAutoLoop();
   }
 
-  /**
-   * Detiene la detección
-   */
   stopDetection() {
     if (!this.isActive) {
       console.warn('DetectionService no está activo');
       return;
     }
-
     this.isActive = false;
-
-    console.log('🛑 DetectionService detenido');
-    
-    // Notificar estado final
+    this._stopAutoLoop();
     this.notifyCallbacks({
       isProcessing: false,
       letter: null,
@@ -356,37 +230,26 @@ export class DetectionService {
     });
   }
 
-  /**
-   * Fuerza una detección manual con imagen
-   * @param {string|object} imageData - Datos de imagen para procesar
-   */
+  // Forzar una detección manual (por ejemplo, desde una imagen)
   async forceDetection(imageData) {
     if (!this.isActive) {
       console.warn('DetectionService no está activo');
-      return;
+      return null;
     }
-
     if (!this.isModelLoaded) {
-      console.warn('Modelo CNN no está cargado');
-      this.notifyCallbacks({ 
-        error: 'Modelo no está cargado' 
-      });
-      return;
+      this.notifyCallbacks({ error: 'Modelo no está cargado' });
+      return null;
     }
-
     try {
-      console.log('🔄 Forzando detección manual con modelo CNN');
       const result = await this.predictLetter(imageData);
       return result;
-    } catch (error) {
-      console.error('Error en detección forzada:', error);
+    } catch (e) {
+      console.error('Error en detección forzada:', e);
       return null;
     }
   }
 
-  /**
-   * Obtiene el estado actual del servicio
-   */
+  // Estado
   getStatus() {
     return {
       isActive: this.isActive,
@@ -401,15 +264,9 @@ export class DetectionService {
 // Instancia singleton del servicio
 export const detectionService = new DetectionService();
 
-// Funciones de utilidad
-export const isValidLetter = (letter) => {
-  return ALPHABET.includes(letter?.toUpperCase());
-};
-
-export const formatConfidence = (confidence) => {
-  return Math.round(Math.max(0, Math.min(100, confidence)));
-};
-
+// Utilidades
+export const isValidLetter = (letter) => ALPHABET.includes(letter?.toUpperCase());
+export const formatConfidence = (confidence) => Math.round(Math.max(0, Math.min(100, confidence)));
 export const getConfidenceLevel = (confidence) => {
   if (confidence >= 70) return 'high';
   if (confidence >= 40) return 'medium';

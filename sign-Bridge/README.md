@@ -1,4 +1,19 @@
-# Welcome to your Expo app 👋
+# SignBridge
+
+## TFLite nativo (Android/iOS)
+
+Para usar el modelo `.tflite` con el servicio nativo:
+
+1. Copia tu modelo a una ruta accesible por nativo:
+
+   - Android: `android/app/src/main/assets/models/best_float32.tflite`
+   - iOS: agrega el archivo al target en Xcode dentro de `models/best_float32.tflite`
+
+2. Asegúrate de tener `metro.config.js` con `assetExts` incluyendo `tflite`.
+
+3. En la app, el `DetectionService` cargará el modelo nativo si está disponible y usará simulación como fallback.
+
+## Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
