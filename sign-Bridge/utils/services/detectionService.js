@@ -1,4 +1,5 @@
-// src/utils/services/detectionService.js
+// utils/services/detectionService.js
+// Versión inicial: servicio de detección simulado listo para integrar un modelo real
 
 // Alfabeto disponible para detección
 const ALPHABET = [
@@ -10,164 +11,217 @@ const ALPHABET = [
 const DETECTION_CONFIG = {
   minConfidence: 30,      // Confianza mínima para mostrar resultado
   maxConfidence: 95,      // Confianza máxima realista
-  processingTime: 800,    // Tiempo de procesamiento en ms
-  detectionInterval: 2000, // Intervalo entre detecciones automáticas
+  // Ruta del modelo (.tflite) en assets (referencia futura; no se carga en esta versión)
+  modelPath: 'assets/Modelo/runs/detect/train/weights/best_saved_model/best_float32.tflite',
+  inputSize: 224,         // Tamaño de entrada esperado por el modelo (para futura integración)
+  detectionInterval: 1500 // Intervalo entre detecciones en ms (simulación)
 };
 
 /**
- * Genera una detección aleatoria para testing
- * @returns {Object} { letter: string, confidence: number }
+ * Servicio principal de detección (primera versión con simulación)
+ * API pública usada por AlphabetDetectionScreen:
+ * - onDetection(cb), offDetection(cb)
+ * - startDetection(), stopDetection(), forceDetection(imageData?)
+ * - getStatus()
  */
-export const generateRandomDetection = () => {
-  const randomLetter = ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
-  const randomConfidence = Math.floor(
-    Math.random() * (DETECTION_CONFIG.maxConfidence - DETECTION_CONFIG.minConfidence) + 
-    DETECTION_CONFIG.minConfidence
-  );
-  
-  return {
-    letter: randomLetter,
-    confidence: randomConfidence
-  };
-};
+import { Platform } from 'react-native';
+import { fastTfliteService } from './fastTfliteService';
+import { tfliteNativeService } from './tfliteNativeService';
 
-/**
- * Simula el procesamiento de detección con delay
- * @returns {Promise<Object>} Resultado de detección
- */
-export const simulateDetection = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // 70% probabilidad de detectar algo, 30% sin detección
-      const hasDetection = Math.random() > 0.3;
-      
-      if (hasDetection) {
-        resolve(generateRandomDetection());
-      } else {
-        resolve(null); // Sin detección
-      }
-    }, DETECTION_CONFIG.processingTime);
-  });
-};
-
-/**
- * Servicio principal de detección
- */
 export class DetectionService {
   constructor() {
-    this.isActive = false;
-    this.detectionTimer = null;
+    this.isActive = true;
     this.callbacks = [];
+    this.model = null;
+    this.isModelLoaded = false;
+    this._timer = null;
+    this._lastLetter = null;
   }
 
-  /**
-   * Registra un callback para recibir resultados de detección
-   * @param {Function} callback - Función a llamar con resultados
-   */
+  // Registro de callbacks
   onDetection(callback) {
-    this.callbacks.push(callback);
+    if (typeof callback === 'function') {
+      this.callbacks.push(callback);
+    }
   }
 
-  /**
-   * Desregistra un callback
-   * @param {Function} callback - Función a remover
-   */
   offDetection(callback) {
     this.callbacks = this.callbacks.filter(cb => cb !== callback);
   }
 
-  /**
-   * Notifica a todos los callbacks registrados
-   * @param {Object} result - Resultado de detección
-   */
   notifyCallbacks(result) {
-    this.callbacks.forEach(callback => {
-      try {
-        callback(result);
-      } catch (error) {
-        console.error('Error en callback de detección:', error);
-      }
+    this.callbacks.forEach(cb => {
+      try { cb(result); } catch (e) { console.error('Error en callback de detección:', e); }
     });
   }
 
-  /**
-   * Inicia la detección automática
-   */
+  // Carga del modelo (placeholder .tflite)
+  async loadModel() {
+    if (this.isModelLoaded) return;
+
+    // Intentar cargar fast-tflite en iOS/Android; luego react-native-tflite; luego simulación
+    let loadedNative = false;
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      try {
+        const modelPath = 'models/best_float32.tflite';
+        // 1) fast-tflite
+        try {
+          const loadedFast = await fastTfliteService.loadModel({ modelPath });
+          if (loadedFast) {
+            this.model = { type: 'fast-tflite', path: modelPath };
+            this.isModelLoaded = true;
+            console.log('⚡ fast-tflite cargado');
+            loadedNative = true;
+          }
+        } catch {}
+        // 2) react-native-tflite
+        if (!loadedNative) {
+          const loadedOld = await tfliteNativeService.loadModel({ modelPath });
+          if (loadedOld) {
+            this.model = { type: 'tflite-native', path: modelPath };
+            this.isModelLoaded = true;
+            console.log('🤖 TFLite nativo (legacy) cargado');
+            loadedNative = true;
+          }
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar TFLite nativo, se usará simulación. Detalle:', e?.message || e);
+      }
+    }
+
+    // Fallback simulación
+    if (!loadedNative) {
+      this.model = {
+        type: 'tflite-placeholder',
+        path: DETECTION_CONFIG.modelPath
+      };
+      this.isModelLoaded = true;
+      console.log('🧠 Modo simulación: modelo placeholder listo en', DETECTION_CONFIG.modelPath);
+    }
+
+    this.notifyCallbacks({ modelLoaded: true, isProcessing: false });
+  }
+
+  // Simulación de predicción
+  async _simulatePrediction() {
+    // Evitar repetir la misma letra 2 veces seguidas si es posible
+    let idx = Math.floor(Math.random() * ALPHABET.length);
+    if (this._lastLetter && ALPHABET[idx] === this._lastLetter) {
+      idx = (idx + 1) % ALPHABET.length;
+    }
+
+    const confidence = Math.round(70 + Math.random() * 30); // 70–100
+    const result = {
+      letter: ALPHABET[idx],
+      confidence,
+      timestamp: Date.now(),
+      source: 'cnn-model-simulation',
+      isSimulation: true
+    };
+    this._lastLetter = result.letter;
+    return result;
+  }
+
+  // Predicción (si hay modelo real, aquí se integrará)
+  async predictLetter(imageData) {
+    if (!this.isModelLoaded) throw new Error('Modelo no está cargado');
+
+    // fast-tflite
+    if (this.model?.type === 'fast-tflite') {
+      if (!imageData?.uri) return null;
+      // Aún no implementado el pipeline de preprocesamiento/postprocesado
+      // Mantener retorno null para no romper UI hasta que se implemente
+      const res = await fastTfliteService.predictFromImageUri(imageData.uri, { threshold: 0.5 });
+      if (!res) return null;
+      const letter = String(res.label || '').toUpperCase();
+      const result = {
+        letter,
+        confidence: res.confidence,
+        timestamp: Date.now(),
+        source: 'fast-tflite',
+        isSimulation: false,
+      };
+      this.notifyCallbacks({ isProcessing: false, ...result });
+      return result;
+    }
+
+    // TFLite nativo (react-native-tflite)
+    if (this.model?.type === 'tflite-native') {
+      // Requiere una imagen (uri) desde la cámara o un snapshot
+      if (!imageData?.uri) {
+        // Sin imagen: no emitir nada
+        return null;
+      }
+      const res = await tfliteNativeService.predictFromImageUri(imageData.uri, { threshold: 0.5 });
+      if (!res) return null;
+      const letter = String(res.label || '').toUpperCase();
+      const result = {
+        letter,
+        confidence: res.confidence,
+        timestamp: Date.now(),
+        source: 'tflite-native',
+        isSimulation: false,
+      };
+      this.notifyCallbacks({ isProcessing: false, ...result });
+      return result;
+    }
+
+    // Placeholder .tflite: usar simulación
+    if (this.model?.type === 'tflite-placeholder') {
+      // simulamos un pequeño tiempo de procesamiento
+      await new Promise(r => setTimeout(r, 300));
+      const result = await this._simulatePrediction();
+      this.notifyCallbacks({ isProcessing: false, ...result });
+      return result;
+    }
+
+    // Implementación real se agregará en siguientes iteraciones
+    throw new Error('Predicción real no implementada en esta versión');
+  }
+
+  // Loop de detección automática (simulación)
+  _startAutoLoop() {
+    this._stopAutoLoop();
+    this._timer = setInterval(async () => {
+      if (!this.isActive) return;
+      try {
+        await this.predictLetter(null);
+      } catch (e) {
+        console.error('Error en loop de detección:', e);
+      }
+    }, DETECTION_CONFIG.detectionInterval);
+  }
+
+  _stopAutoLoop() {
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
+  }
+
+  // Inicio/fin del servicio
   async startDetection() {
     if (this.isActive) {
       console.warn('DetectionService ya está activo');
       return;
     }
-
     this.isActive = true;
-    console.log('🎯 DetectionService iniciado');
+    this.notifyCallbacks({ isProcessing: false, isLive: true, modelReady: this.isModelLoaded });
 
-    // Bucle de detección
-    const detectLoop = async () => {
-      if (!this.isActive) return;
+    await this.loadModel();
+    this.notifyCallbacks({ isProcessing: false, isLive: true, modelReady: this.isModelLoaded });
 
-      try {
-        // Notificar que está procesando
-        this.notifyCallbacks({ isProcessing: true });
-
-        // Simular detección
-        const result = await simulateDetection();
-
-        // Notificar resultado
-        if (result) {
-          this.notifyCallbacks({
-            isProcessing: false,
-            letter: result.letter,
-            confidence: result.confidence,
-            timestamp: Date.now()
-          });
-        } else {
-          this.notifyCallbacks({
-            isProcessing: false,
-            letter: null,
-            confidence: 0,
-            timestamp: Date.now()
-          });
-        }
-
-      } catch (error) {
-        console.error('Error en detección:', error);
-        this.notifyCallbacks({
-          isProcessing: false,
-          error: 'Error en detección',
-          timestamp: Date.now()
-        });
-      }
-
-      // Programar siguiente detección
-      if (this.isActive) {
-        this.detectionTimer = setTimeout(detectLoop, DETECTION_CONFIG.detectionInterval);
-      }
-    };
-
-    // Iniciar primer ciclo
-    detectLoop();
+    // Iniciar loop de simulación
+    this._startAutoLoop();
   }
 
-  /**
-   * Detiene la detección automática
-   */
   stopDetection() {
     if (!this.isActive) {
       console.warn('DetectionService no está activo');
       return;
     }
-
     this.isActive = false;
-    
-    if (this.detectionTimer) {
-      clearTimeout(this.detectionTimer);
-      this.detectionTimer = null;
-    }
-
-    console.log('🛑 DetectionService detenido');
-    
-    // Notificar estado final
+    this._stopAutoLoop();
     this.notifyCallbacks({
       isProcessing: false,
       letter: null,
@@ -176,58 +230,33 @@ export class DetectionService {
     });
   }
 
-  /**
-   * Fuerza una detección manual
-   */
-  async forceDetection() {
+  // Forzar una detección manual (por ejemplo, desde una imagen)
+  async forceDetection(imageData) {
     if (!this.isActive) {
       console.warn('DetectionService no está activo');
-      return;
+      return null;
     }
-
-    console.log('🔄 Forzando detección manual');
-    
-    // Notificar procesamiento
-    this.notifyCallbacks({ isProcessing: true });
-
+    if (!this.isModelLoaded) {
+      this.notifyCallbacks({ error: 'Modelo no está cargado' });
+      return null;
+    }
     try {
-      const result = await simulateDetection();
-      
-      if (result) {
-        this.notifyCallbacks({
-          isProcessing: false,
-          letter: result.letter,
-          confidence: result.confidence,
-          timestamp: Date.now(),
-          isManual: true
-        });
-      } else {
-        this.notifyCallbacks({
-          isProcessing: false,
-          letter: null,
-          confidence: 0,
-          timestamp: Date.now(),
-          isManual: true
-        });
-      }
-    } catch (error) {
-      console.error('Error en detección manual:', error);
-      this.notifyCallbacks({
-        isProcessing: false,
-        error: 'Error en detección manual',
-        timestamp: Date.now()
-      });
+      const result = await this.predictLetter(imageData);
+      return result;
+    } catch (e) {
+      console.error('Error en detección forzada:', e);
+      return null;
     }
   }
 
-  /**
-   * Obtiene el estado actual del servicio
-   */
+  // Estado
   getStatus() {
     return {
       isActive: this.isActive,
+      isModelLoaded: this.isModelLoaded,
       callbackCount: this.callbacks.length,
-      config: DETECTION_CONFIG
+      config: DETECTION_CONFIG,
+      modelPath: DETECTION_CONFIG.modelPath
     };
   }
 }
@@ -235,15 +264,9 @@ export class DetectionService {
 // Instancia singleton del servicio
 export const detectionService = new DetectionService();
 
-// Funciones de utilidad
-export const isValidLetter = (letter) => {
-  return ALPHABET.includes(letter?.toUpperCase());
-};
-
-export const formatConfidence = (confidence) => {
-  return Math.round(Math.max(0, Math.min(100, confidence)));
-};
-
+// Utilidades
+export const isValidLetter = (letter) => ALPHABET.includes(letter?.toUpperCase());
+export const formatConfidence = (confidence) => Math.round(Math.max(0, Math.min(100, confidence)));
 export const getConfidenceLevel = (confidence) => {
   if (confidence >= 70) return 'high';
   if (confidence >= 40) return 'medium';

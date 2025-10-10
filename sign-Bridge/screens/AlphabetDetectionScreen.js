@@ -23,12 +23,16 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
   const cameraRef = useRef(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
   // Web-specific
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
   const videoRef = useRef(null);
+  const screenMountedRef = useRef(true);
 
   useEffect(() => {
+  screenMountedRef.current = true;
     if (Platform.OS === 'web') {
       setIsLoading(true);
       const getWebcam = async () => {
@@ -53,6 +57,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
         if (webStream) {
           webStream.getTracks().forEach(track => track.stop());
         }
+        screenMountedRef.current = false;
       };
     } else {
       const timer = setTimeout(() => {
@@ -62,6 +67,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       return () => {
         clearTimeout(timer);
         detectionService.stopDetection();
+        screenMountedRef.current = false;
       };
     }
   }, []);
@@ -108,14 +114,63 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 
   const forceDetection = async () => {
     try {
-      await detectionService.forceDetection();
+      if (Platform.OS === 'web') {
+        // En web mantenemos la simulación/flujo actual
+        await detectionService.forceDetection();
+        return;
+      }
+
+      // En nativo: tomar una foto rápida y pasar el URI al servicio
+      if (!cameraRef.current || !isCameraReady) {
+        console.warn('Cámara no lista aún para capturar');
+        await detectionService.forceDetection();
+        return;
+      }
+
+      if (isCapturing) {
+        return; // evitar capturas concurrentes
+      }
+      setIsCapturing(true);
+      let attempts = 0;
+      let done = false;
+      let lastError = null;
+      while (!done && attempts < 2) {
+        try {
+          // pequeña espera por si acaba de montarse
+          await new Promise(r => setTimeout(r, attempts === 0 ? 50 : 200));
+          const photo = await cameraRef.current.takePictureAsync({
+            quality: 0.5,
+            skipProcessing: true,
+            base64: false,
+            exif: false,
+          });
+          if (!screenMountedRef.current) return;
+          const uri = photo?.uri || photo?.localUri;
+          await detectionService.forceDetection({ uri });
+          done = true;
+        } catch (err) {
+          lastError = err;
+          const msg = String(err?.message || err);
+          if (/unmounted/i.test(msg)) {
+            // reintentar una vez tras breve espera
+            attempts += 1;
+            continue;
+          }
+          throw err;
+        }
+      }
+      if (!done && lastError) throw lastError;
     } catch (error) {
       console.error('Error en detección manual:', error);
       Alert.alert('Error', 'Error en detección manual');
+    } finally {
+      setIsCapturing(false);
     }
   };
 
   const toggleCameraFacing = () => {
+    // Al cambiar de cámara, la vista se re-monta; marcamos como no lista hasta onCameraReady
+    setIsCameraReady(false);
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
@@ -150,7 +205,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       return (
         <View style={styles.centerContainer}>
           <StatusBar style="light" />
-          <Ionicons name="camera-off" size={80} color="#FF4444" />
+          <Ionicons name="close-circle-outline" size={80} color="#FF4444" />
           <Text style={styles.errorText}>Sin acceso a la cámara</Text>
           <Text style={styles.subtitleText}>{webError}</Text>
         </View>
@@ -170,7 +225,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       return (
         <View style={styles.centerContainer}>
           <StatusBar style="light" />
-          <Ionicons name="camera-off" size={80} color="#FF4444" />
+          <Ionicons name="close-circle-outline" size={80} color="#FF4444" />
           <Text style={styles.errorText}>Sin acceso a la cámara</Text>
           <Text style={styles.subtitleText}>
             SignBridge necesita acceso a la cámara para detectar letras
@@ -227,6 +282,12 @@ const AlphabetDetectionScreen = ({ navigation }) => {
             <CameraView
               style={styles.camera}
               facing={facing}
+              active={true}
+              onCameraReady={() => setIsCameraReady(true)}
+              onMountError={(e) => {
+                console.error('Error montando cámara:', e?.nativeEvent || e);
+                setIsCameraReady(false);
+              }}
               ref={cameraRef}
             />
             {/* Overlay de detección */}
@@ -254,7 +315,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
         <View style={styles.statusContainer}>
           <View style={styles.statusIndicator}>
             <Ionicons
-              name={isDetectionActive ? "camera" : "camera-off"}
+              name={isDetectionActive ? "camera" : "close-circle-outline"}
               size={16}
               color={isDetectionActive ? "#00FF88" : "#FFB800"}
             />
