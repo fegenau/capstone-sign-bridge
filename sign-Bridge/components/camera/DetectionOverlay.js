@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 const DetectionOverlay = ({ 
   detectedLetter, 
   confidence, 
-  isProcessing, 
+  isProcessing,
+  type = 'letter', 
   isVisible = true 
 }) => {
   
@@ -73,8 +74,10 @@ const DetectionOverlay = ({
       <View style={styles.contentContainer}>
         <View style={styles.noDetectionContainer}>
           <Ionicons name="hand-left" size={60} color="#CCCCCC" />
-          <Text style={styles.noDetectionText}>
-            Muestra una letra con tu mano
+          <Text style={styles.waitingText}>
+          {isProcessing 
+          ? `Muestra un ${type === 'number' ? 'número' : 'letra'}`
+          : 'Pausado'}
           </Text>
           <Text style={styles.noDetectionSubtext}>
             Colócala dentro del marco verde
