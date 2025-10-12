@@ -3,7 +3,7 @@ import time
 from ultralytics import YOLO
 
 # === Parámetros ajustables ===
-MODEL_PATH = "Proyectos/capstone-sign-bridge/Modelo/runs/detect/train/weights/best_saved_model/best_float32.tflite"
+MODEL_PATH = "../capstone-sign-bridge/sign-Bridge/assets/Modelo/runs/detect/train/weights/best_float16.tflite"  # ruta al modelo .tflite
 CONF_THRESH = 0.7     # confianza mínima
 DEBOUNCE_SEC = 1.5    # evita repetir la misma letra muy rápido
 WINDOW_TITLE = "Traductor de Señas Chilenas (.tflite)"
