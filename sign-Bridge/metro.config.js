@@ -1,14 +1,20 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// Add support for binary files (.bin) used by TensorFlow models
+// Add support for TensorFlow.js model files (.bin files)
 config.resolver.assetExts.push(
-  'bin',
-  'tflite'
+  'bin',      // TensorFlow.js weight files
+  'tflite'    // TensorFlow Lite models
 );
 
-// Ensure source extensions are properly configured
-config.resolver.sourceExts = [...config.resolver.sourceExts, 'jsx', 'js', 'ts', 'tsx', 'json'];
+// Keep json in sourceExts (for imports) - it's there by default
+// Don't add json to assetExts to avoid conflicts
+
+// Configure public folder for web static files
+config.watchFolders = [
+  path.resolve(__dirname, 'public')
+];
 
 module.exports = config;

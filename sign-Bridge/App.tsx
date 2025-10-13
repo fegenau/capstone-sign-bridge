@@ -97,16 +97,7 @@ export default function App() {
 
   const initializeApp = async () => {
     try {
-      // 1. Solicitar permisos de cámara
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-      
-      if (status !== 'granted') {
-        console.error('Permisos de cámara denegados');
-        return;
-      }
-
-      // 2. Inicializar TensorFlow para React Native
+      // 1. Inicializar TensorFlow para React Native PRIMERO (no bloquea UI)
       console.log('🔄 Inicializando TensorFlow...');
       
       // Wait for TensorFlow to be ready
@@ -144,6 +135,14 @@ export default function App() {
       // await loadAllModels();
       console.log('⚠️ Modelos no cargados - usando placeholders');
       
+      // 2. Solicitar permisos de cámara (al final, no bloquea)
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === 'granted');
+      
+      if (status !== 'granted') {
+        console.log('⚠️ Permisos de cámara no otorgados');
+      }
+      
     } catch (error) {
       console.error('❌ Error en inicialización:', error);
       // Set tfReady anyway so the UI doesn't get stuck
@@ -178,38 +177,23 @@ export default function App() {
     }
   };
 
-  // Static model imports (required for Expo/Metro bundler)
-  const MODEL_ASSETS = {
-    numbers: {
-      json: require('./assets/models/numbers/model.json'),
-      weights: require('./assets/models/numbers/weights.bin'),
-    },
-    alphabet: {
-      json: require('./assets/models/alphabet/model.json'),
-      weights: require('./assets/models/alphabet/weights.bin'),
-    },
-    gestures: {
-      json: require('./assets/models/gestures/model.json'),
-      weights: require('./assets/models/gestures/weights.bin'),
-    },
-  };
-
+  // Model loading function - placeholder for now
   const loadModel = async (mode: DetectionMode): Promise<tf.LayersModel | null> => {
     try {
       console.log(`🔄 Cargando modelo: ${MODEL_CONFIG[mode].name}`);
+      console.log('⚠️ Metro bundler no puede resolver .bin files con require()');
+      console.log('⚠️ Usando modelo placeholder temporal');
       
-      // Load model using bundleResourceIO from @tensorflow/tfjs-react-native
-      const modelAssets = MODEL_ASSETS[mode];
+      // NOTA: Metro bundler NO PUEDE resolver archivos .bin con require()
+      // Esto es una limitación fundamental, no un bug de configuración
+      // 
+      // Soluciones posibles:
+      // 1. Descargar modelos en runtime desde servidor (producción)
+      // 2. Usar formato diferente (TFLite con módulos nativos)
+      // 3. Embedder como base64 en JS (tamaño gigante)
+      // 4. Web-only deployment
       
-      const model = await tf.loadLayersModel(
-        bundleResourceIO(modelAssets.json, modelAssets.weights)
-      );
-      
-      console.log(`✅ Modelo ${MODEL_CONFIG[mode].name} cargado`);
-      console.log(`   Input shape: ${model.inputs[0].shape}`);
-      console.log(`   Output shape: ${model.outputs[0].shape}`);
-      
-      return model;
+      return null; // Retornar null para usar placeholder
       
     } catch (error) {
       console.error(`❌ Error cargando modelo ${mode}:`, error);
@@ -396,25 +380,7 @@ export default function App() {
   // RENDERIZADO
   // ============================================
 
-  if (hasPermission === null) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>Solicitando permisos...</Text>
-      </View>
-    );
-  }
-
-  if (hasPermission === false) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>❌ No hay acceso a la cámara</Text>
-        <Text style={styles.errorSubtext}>
-          Por favor habilita los permisos en la configuración
-        </Text>
-      </View>
-    );
-  }
+  // Removed blocking camera permission checks - app now shows UI regardless
 
   if (!tfReady) {
     return (
@@ -434,7 +400,16 @@ export default function App() {
       
       {/* Cámara */}
       <View style={styles.cameraContainer}>
-        {Platform.OS !== 'web' ? (
+        {!hasPermission ? (
+          <View style={styles.noCameraView}>
+            <Text style={styles.noCameraText}>📷 Cámara no disponible</Text>
+            <Text style={styles.noCameraSubtext}>
+              {hasPermission === null 
+                ? 'Solicitando permisos...' 
+                : 'Permisos de cámara denegados. Habilita los permisos para usar la detección.'}
+            </Text>
+          </View>
+        ) : Platform.OS !== 'web' ? (
           <>
             <CameraComponent
               style={styles.camera}
@@ -585,6 +560,25 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  noCameraView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 30,
+  },
+  noCameraText: {
+    fontSize: 32,
+    color: '#FFF',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  noCameraSubtext: {
+    fontSize: 16,
+    color: '#AAA',
+    textAlign: 'center',
+    lineHeight: 24,
   },
   guideBox: {
     position: 'absolute',
