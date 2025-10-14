@@ -1,6 +1,8 @@
 // src/utils/services/detectionService.js
-import { Platform, NativeModules } from 'react-native';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { Asset as ExpoAsset } from 'expo-asset';
+import { TensorflowModel } from 'react-native-fast-tflite';
 
 // Alfabeto y números disponibles para detección
 const ALPHABET = [
@@ -17,7 +19,8 @@ const DETECTION_CONFIG = {
   processingTime: 800,     // Tiempo de procesamiento en ms
   detectionInterval: 1500, // Intervalo entre detecciones (1.5s debounce)
   modelRetryInterval: 10000, // Reintentar cargar modelo cada 10 segundos
-  modelPath: 'Modelo/runs/detect/train/weights/best_float16.tflite',
+  // Ruta relativa del modelo en assets
+  modelRelativePath: 'Modelo/best_float16.tflite',
 };
 
 /**
@@ -67,13 +70,15 @@ export class DetectionService {
     this.modelRetryTimer = null;
     this.callbacks = [];
     this.model = null;
+    this.modelUri = null;
     this.isModelLoaded = false;
+    this.modelFileExists = false;
     this.isTfReady = false;
     this.modelLoadAttempts = 0;
     this.lastDetectedSymbol = null;
     this.lastDetectionTime = 0;
     
-    // Intentar inicializar TensorFlow y cargar modelo
+    // Intentar inicializar sistema y cargar modelo
     this.initializeTensorFlow();
   }
 
@@ -96,8 +101,7 @@ export class DetectionService {
   }
 
   /**
-   * Carga el modelo TFLite
-   * Nota: Requiere implementación nativa o TensorFlow.js compatible
+   * Carga el modelo TFLite nativo
    */
   async loadModel() {
     if (this.isModelLoaded) {
@@ -107,42 +111,62 @@ export class DetectionService {
 
     try {
       this.modelLoadAttempts++;
-      console.log(`🔄 Intentando cargar modelo (intento ${this.modelLoadAttempts})...`);
+      console.log(`🔄 Intentando cargar modelo TFLite (intento ${this.modelLoadAttempts})...`);
       
-      // Verificar si el archivo del modelo existe
-      const modelUri = `${FileSystem.documentDirectory}${DETECTION_CONFIG.modelPath}`;
-      const modelExists = await this.checkModelExists(modelUri);
+      // Cargar el asset del modelo
+      const assetUri = ExpoAsset.fromModule(
+        require('../../assets/Modelo/best_float16.tflite')
+      );
       
-      if (!modelExists) {
+      // Descargar/copiar el asset si es necesario
+      await assetUri.downloadAsync();
+      const modelUri = assetUri.localUri || assetUri.uri;
+      
+      console.log(`📦 Asset del modelo localizado en: ${modelUri}`);
+      
+      // Verificar que existe
+      const info = await FileSystem.getInfoAsync(modelUri);
+      if (!info.exists) {
         throw new Error('Archivo del modelo no encontrado');
       }
       
-      // TODO: Implementar carga del modelo TFLite
-      // Opciones:
-      // 1. Usar TensorFlow Lite React Native (requiere módulo nativo)
-      // 2. Usar ML Kit de Google (Android/iOS)
-      // 3. Usar ONNX Runtime para React Native
+      const modelSize = info.size;
+      console.log(`✅ Archivo del modelo existe (${(modelSize / 1024 / 1024).toFixed(2)} MB)`);
       
-      // Por ahora, simular que el modelo no se puede cargar
-      throw new Error('Módulo TFLite no implementado - usando simulación');
+      // Cargar el modelo con react-native-fast-tflite
+      console.log('🚀 Cargando modelo TFLite nativo...');
+      this.model = await TensorflowModel.loadFromFile(modelUri);
       
-      // Cuando se implemente:
-      // this.model = await loadTFLiteModel(modelUri);
-      // this.isModelLoaded = true;
-      // console.log('✅ Modelo TFLite cargado exitosamente');
+      this.modelUri = modelUri;
+      this.isModelLoaded = true;
+      this.modelFileExists = true;
+      
+      // Obtener información del modelo
+      const inputTensors = this.model.inputs;
+      const outputTensors = this.model.outputs;
+      
+      console.log('✅ Modelo TFLite cargado exitosamente');
+      console.log(`📊 Inputs: ${inputTensors.length} tensor(s)`);
+      console.log(`📊 Outputs: ${outputTensors.length} tensor(s)`);
+      
+      if (inputTensors.length > 0) {
+        const inputShape = inputTensors[0].shape;
+        console.log(`📐 Input shape: [${inputShape.join(', ')}]`);
+      }
       
     } catch (error) {
       console.error('❌ Error al cargar modelo:', error.message);
       this.isModelLoaded = false;
+      this.modelFileExists = false;
       console.log('⚠️ Usando modo simulación como fallback');
       
-      // Programar reintento
+      // Reintentar cargar modelo cada 10 segundos
       this.scheduleModelRetry();
     }
   }
 
   /**
-   * Verifica si el archivo del modelo existe
+   * Verifica si el archivo del modelo existe (método legacy)
    */
   async checkModelExists(uri) {
     try {
@@ -174,7 +198,7 @@ export class DetectionService {
 
   /**
    * Procesa una imagen con el modelo TFLite
-   * @param {Object} imageData - Datos de la imagen de la cámara
+   * @param {Object} imageData - Datos de la imagen de la cámara (URI o base64)
    * @returns {Promise<Object|null>} Resultado de detección
    */
   async processImageWithModel(imageData) {
@@ -183,17 +207,29 @@ export class DetectionService {
     }
 
     try {
-      // TODO: Implementar procesamiento real con TFLite
-      // Cuando se agregue el módulo nativo:
-      // 
-      // const result = await TFLiteModule.detectSignLanguage(imageData, {
-      //   confidenceThreshold: DETECTION_CONFIG.minConfidence,
-      //   maxDetections: 1
-      // });
-      //
-      // return this.processPredictions(result);
+      // Preparar la imagen para el modelo
+      // YOLO espera input: [1, 640, 640, 3] normalizado 0-1
+      const preparedImage = await this.prepareImageForModel(imageData);
       
-      // Por ahora retornar null para usar fallback
+      if (!preparedImage) {
+        console.error('❌ No se pudo preparar la imagen');
+        return null;
+      }
+      
+      // Ejecutar inferencia
+      const startTime = Date.now();
+      const outputs = this.model.run([preparedImage]);
+      const inferenceTime = Date.now() - startTime;
+      
+      console.log(`⚡ Inferencia completada en ${inferenceTime}ms`);
+      
+      // Procesar las salidas del modelo
+      // Output típico de YOLO: [1, 8400, 38] donde 38 = [x, y, w, h, conf, ...clases]
+      if (outputs && outputs.length > 0) {
+        const detections = this.parseYOLOOutput(outputs[0]);
+        return this.processPredictions(detections);
+      }
+      
       return null;
     } catch (error) {
       console.error('❌ Error al procesar imagen con modelo:', error);
@@ -202,40 +238,126 @@ export class DetectionService {
   }
 
   /**
+   * Prepara la imagen para el modelo YOLO
+   * @param {string} imageUri - URI de la imagen
+   * @returns {Promise<Float32Array>} Tensor de imagen preparado
+   */
+  async prepareImageForModel(imageUri) {
+    try {
+      // NOTA: El preprocessing completo se implementará con frame processors nativos
+      // después de compilar con expo prebuild + expo run:android
+      // 
+      // Por ahora, retornamos null para usar el modo simulación.
+      // Esto cambiará cuando agreguemos react-native-vision-camera v4
+      // con worklets para procesamiento en tiempo real.
+      //
+      // Preprocessing requerido:
+      // 1. Leer imagen desde URI
+      // 2. Redimensionar a 640x640
+      // 3. Normalizar píxeles (0-255 -> 0-1)
+      // 4. Convertir a Float32Array [1, 640, 640, 3]
+      
+      console.log('⚠️ Preprocessing será implementado con frame processors nativos');
+      console.log('   Compila la app con: npx expo run:android');
+      return null;
+    } catch (error) {
+      console.error('❌ Error al preparar imagen:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Parsea la salida raw del modelo YOLO
+   * @param {Float32Array} output - Salida del modelo
+   * @returns {Array} Array de detecciones
+   */
+  parseYOLOOutput(output) {
+    const detections = [];
+    
+    try {
+      // Output shape típico: [1, 8400, 38]
+      // Donde 38 = [x, y, w, h, conf, ...clases(33)]
+      
+      const numDetections = 8400; // Anchors de YOLO
+      const numClasses = 33; // A-Z (26) + 0-9 (10) = 36, pero puede tener más
+      const boxSize = 4; // x, y, w, h
+      
+      for (let i = 0; i < numDetections; i++) {
+        const offset = i * (boxSize + 1 + numClasses);
+        
+        // Extraer confianza
+        const confidence = output[offset + 4];
+        
+        if (confidence >= DETECTION_CONFIG.minConfidence) {
+          // Extraer coordenadas de la caja
+          const x = output[offset];
+          const y = output[offset + 1];
+          const w = output[offset + 2];
+          const h = output[offset + 3];
+          
+          // Encontrar la clase con mayor probabilidad
+          let maxClassProb = 0;
+          let classId = 0;
+          
+          for (let c = 0; c < numClasses; c++) {
+            const classProb = output[offset + 5 + c];
+            if (classProb > maxClassProb) {
+              maxClassProb = classProb;
+              classId = c;
+            }
+          }
+          
+          detections.push({
+            bbox: { x, y, w, h },
+            confidence: confidence * maxClassProb,
+            classId,
+            className: this.getClassNameFromId(classId)
+          });
+        }
+      }
+      
+      // Ordenar por confianza descendente
+      detections.sort((a, b) => b.confidence - a.confidence);
+      
+    } catch (error) {
+      console.error('❌ Error al parsear salida YOLO:', error);
+    }
+    
+    return detections;
+  }
+
+  /**
+   * Obtiene el nombre de la clase desde el ID
+   * @param {number} classId - ID de la clase
+   * @returns {string} Nombre de la clase
+   */
+  getClassNameFromId(classId) {
+    const allSymbols = [...ALPHABET, ...NUMBERS];
+    return allSymbols[classId] || '?';
+  }
+
+  /**
    * Procesa las predicciones del modelo YOLO
-   * @param {Object} predictions - Predicciones del modelo
+   * @param {Array} detections - Array de detecciones del modelo
    * @returns {Object|null} Resultado procesado
    */
-  async processPredictions(predictions) {
-    if (!predictions || !predictions.detections || predictions.detections.length === 0) {
+  async processPredictions(detections) {
+    if (!detections || detections.length === 0) {
       return null;
     }
 
-    let bestDetection = null;
-    let maxConfidence = 0;
-
-    // Buscar la detección con mayor confianza
-    for (const detection of predictions.detections) {
-      const confidence = detection.confidence;
+    // La primera detección ya es la de mayor confianza (ordenada en parseYOLOOutput)
+    const detection = detections[0];
+    
+    if (detection.confidence >= DETECTION_CONFIG.minConfidence) {
+      const bestDetection = {
+        letter: detection.className,
+        confidence: Math.round(detection.confidence * 100),
+        bbox: detection.bbox,
+        timestamp: Date.now()
+      };
       
-      if (confidence > maxConfidence && confidence >= DETECTION_CONFIG.minConfidence) {
-        maxConfidence = confidence;
-        
-        // Obtener el símbolo detectado
-        const classIndex = detection.classId;
-        const allSymbols = [...ALPHABET, ...NUMBERS];
-        const detectedSymbol = allSymbols[classIndex] || detection.className || '?';
-        
-        bestDetection = {
-          letter: detectedSymbol,
-          confidence: Math.round(confidence * 100),
-          timestamp: Date.now()
-        };
-      }
-    }
-
-    // Aplicar debounce: evitar repetir el mismo símbolo muy rápido
-    if (bestDetection) {
+      // Aplicar debounce: evitar repetir el mismo símbolo muy rápido
       const now = Date.now();
       if (
         bestDetection.letter === this.lastDetectedSymbol &&
@@ -246,9 +368,11 @@ export class DetectionService {
       
       this.lastDetectedSymbol = bestDetection.letter;
       this.lastDetectionTime = now;
+      
+      return bestDetection;
     }
 
-    return bestDetection;
+    return null;
   }
 
   /**
@@ -504,6 +628,8 @@ export class DetectionService {
     return {
       isActive: this.isActive,
       isModelLoaded: this.isModelLoaded,
+      modelFileExists: this.modelFileExists,
+      modelUri: this.modelUri,
       isTfReady: this.isTfReady,
       modelLoadAttempts: this.modelLoadAttempts,
       callbackCount: this.callbacks.length,
