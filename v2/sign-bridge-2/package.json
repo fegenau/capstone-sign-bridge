@@ -9,10 +9,18 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-react-native": "^1.0.0",
     "expo": "~54.0.13",
+    "expo-camera": "~14.0.5",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
-    "react-native": "0.81.4"
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-canvas": "^0.1.40",
+    "react-native-web": "^0.21.0",
+    "ultralytics": "^1.0.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
