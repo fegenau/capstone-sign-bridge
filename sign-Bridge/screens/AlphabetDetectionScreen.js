@@ -22,6 +22,8 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [isSimulated, setIsSimulated] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
@@ -42,10 +44,19 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       if (result.letter !== undefined) {
         setDetectedLetter(result.letter);
         setConfidence(result.confidence || 0);
+        setIsSimulated(result.isSimulated || false);
+      }
+      if (result.modelLoaded !== undefined) {
+        setIsModelLoaded(result.modelLoaded);
       }
     };
 
     detectionService.onDetection(handleDetectionResult);
+    
+    // Obtener estado inicial del modelo
+    const status = detectionService.getStatus();
+    setIsModelLoaded(status.isModelLoaded);
+    
     return () => {
       detectionService.offDetection(handleDetectionResult);
     };
@@ -54,7 +65,8 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const startDetection = async () => {
     try {
       setIsDetectionActive(true);
-      await detectionService.startDetection();
+      // Pasar la referencia de la cámara al servicio de detección
+      await detectionService.startDetection(cameraRef);
       console.log('Detección iniciada');
     } catch (error) {
       console.error('Error al iniciar detección:', error);
@@ -244,6 +256,17 @@ const AlphabetDetectionScreen = ({ navigation }) => {
         </View>
         
         <View style={styles.statusItem}>
+          <Ionicons 
+            name={isModelLoaded ? "cube" : "cube-outline"} 
+            size={16} 
+            color={isModelLoaded ? "#00FF88" : "#FFB800"} 
+          />
+          <Text style={styles.statusItemText}>
+            {isModelLoaded ? 'Modelo TFLite' : 'Modo Simulación'}
+          </Text>
+        </View>
+        
+        <View style={styles.statusItem}>
           <Ionicons name="camera" size={16} color="#00FF88" />
           <Text style={styles.statusItemText}>
             Cámara {facing === 'back' ? 'trasera' : 'frontal'}
@@ -255,18 +278,20 @@ const AlphabetDetectionScreen = ({ navigation }) => {
             <Ionicons name="checkmark-circle" size={16} color="#00FF88" />
             <Text style={styles.statusItemText}>
               Detectada: {detectedLetter} ({confidence}%)
+              {isSimulated && ' 🎲'}
             </Text>
           </View>
         )}
       </View>
 
-      {/* Panel de alfabeto */}
+      {/* Panel de alfabeto y números */}
       <View style={styles.alphabetPanel}>
         <Text style={styles.alphabetTitle}>
-          Alfabeto de Referencia {detectedLetter ? `- ${detectedLetter}` : ''}
+          Alfabeto y Números {detectedLetter ? `- ${detectedLetter}` : ''}
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.alphabetRow}>
+            {/* Alfabeto A-Z */}
             {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'].map((letter) => (
               <TouchableOpacity
                 key={letter}
@@ -281,6 +306,30 @@ const AlphabetDetectionScreen = ({ navigation }) => {
                   detectedLetter === letter && styles.letterTextActive
                 ]}>
                   {letter}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            
+            {/* Separador visual */}
+            <View style={styles.symbolSeparator} />
+            
+            {/* Números 0-9 */}
+            {['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].map((number) => (
+              <TouchableOpacity
+                key={number}
+                style={[
+                  styles.letterBox,
+                  styles.numberBox,
+                  detectedLetter === number && styles.letterBoxActive
+                ]}
+                onPress={() => handleLetterPress(number)}
+              >
+                <Text style={[
+                  styles.letterText,
+                  styles.numberText,
+                  detectedLetter === number && styles.letterTextActive
+                ]}>
+                  {number}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -542,6 +591,18 @@ const styles = StyleSheet.create({
   },
   letterTextActive: {
     color: '#000',
+  },
+  numberBox: {
+    backgroundColor: '#2a4a5a',
+  },
+  numberText: {
+    color: '#4fc3f7',
+  },
+  symbolSeparator: {
+    width: 2,
+    height: 35,
+    backgroundColor: '#666',
+    marginHorizontal: 5,
   },
   backButton: {
   width: 40,
