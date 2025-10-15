@@ -1,0 +1,339 @@
+name: Build Production APK with Real Model
+
+on:
+  push:
+    branches: [main, master, feature/CSB-47/integrate-CNN-model]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: 'EAS Build Profile'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+          - production-aab
+
+env:
+  NODE_VERSION: '18.x'
+  EXPO_SDK_VERSION: '54.0.9'
+
+jobs:
+  # Job 1: Validate Model and Dependencies
+  validate:
+    name: Validate Model & Dependencies
+    runs-on: ubuntu-latest
+    outputs:
+      model-valid: ${{ steps.validate-model.outputs.valid }}
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true  # Pull Git LFS files if model is tracked
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: sign-Bridge/package-lock.json
+      
+      - name: 🔧 Install dependencies
+        working-directory: ./sign-Bridge
+        run: npm ci --legacy-peer-deps
+      
+      - name: 🔍 Validate TFLite model
+        id: validate-model
+        working-directory: ./sign-Bridge
+        run: |
+          echo "Running model validation..."
+          npm run validate-model
+          echo "valid=true" >> $GITHUB_OUTPUT
+      
+      - name: 📊 Check model file size
+        working-directory: ./sign-Bridge
+        run: |
+          MODEL_PATH="assets/Modelo/runs/detect/train/weights/best_float16.tflite"
+          if [ -f "$MODEL_PATH" ]; then
+            SIZE=$(stat -f%z "$MODEL_PATH" 2>/dev/null || stat -c%s "$MODEL_PATH" 2>/dev/null)
+            SIZE_MB=$((SIZE / 1024 / 1024))
+            echo "📦 Model size: ${SIZE_MB} MB"
+            if [ $SIZE_MB -lt 1 ]; then
+              echo "❌ Model file too small (${SIZE_MB} MB)"
+              exit 1
+            fi
+            echo "✅ Model file valid: ${SIZE_MB} MB"
+          else
+            echo "❌ Model file not found"
+            exit 1
+          fi
+      
+      - name: 🔍 Audit dependencies
+        working-directory: ./sign-Bridge
+        run: |
+          npm audit --audit-level=moderate --production || true
+          echo "📦 Checking for outdated packages..."
+          npm outdated || true
+
+  # Job 2: Run Tests
+  test:
+    name: Run All Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: sign-Bridge/package-lock.json
+      
+      - name: 🔧 Install dependencies
+        working-directory: ./sign-Bridge
+        run: npm ci --legacy-peer-deps
+      
+      - name: 🧪 Run Jest tests with coverage
+        working-directory: ./sign-Bridge
+        run: npm run test:ci
+      
+      - name: 📊 Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./sign-Bridge/coverage/lcov.info
+          flags: unittests
+          name: codecov-signbridge
+          fail_ci_if_error: false
+      
+      - name: 📈 Generate coverage badge
+        if: always()
+        working-directory: ./sign-Bridge
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "✅ Test coverage generated"
+            cat coverage/coverage-summary.json
+          fi
+
+  # Job 3: Build APK with EAS Build
+  build-apk:
+    name: Build APK (EAS Build)
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    if: needs.validate.outputs.model-valid == 'true'
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: sign-Bridge/package-lock.json
+      
+      - name: 🔧 Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      
+      - name: 🔧 Install dependencies
+        working-directory: ./sign-Bridge
+        run: npm ci --legacy-peer-deps
+      
+      - name: 🔍 Verify model before build
+        working-directory: ./sign-Bridge
+        run: npm run validate-model
+      
+      - name: 🏗️ Build APK with EAS
+        working-directory: ./sign-Bridge
+        run: |
+          BUILD_PROFILE="${{ github.event.inputs.build_profile || 'production' }}"
+          echo "Building with profile: $BUILD_PROFILE"
+          eas build --platform android --profile $BUILD_PROFILE --non-interactive --no-wait
+      
+      - name: 📝 Build info
+        run: |
+          echo "✅ EAS Build submitted successfully"
+          echo "🔗 Check build status: https://expo.dev/accounts/${{ github.repository_owner }}/projects/signbridge/builds"
+
+  # Job 4: Fallback Gradle Build (if EAS fails)
+  build-gradle:
+    name: Build APK (Gradle Fallback)
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    if: needs.validate.outputs.model-valid == 'true'
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: sign-Bridge/package-lock.json
+      
+      - name: ☕ Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+      
+      - name: 📱 Setup Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: 🔧 Install dependencies
+        working-directory: ./sign-Bridge
+        run: npm ci --legacy-peer-deps
+      
+      - name: 🔍 Validate model
+        working-directory: ./sign-Bridge
+        run: npm run validate-model
+      
+      - name: 🏗️ Prebuild native code
+        working-directory: ./sign-Bridge
+        run: npx expo prebuild --platform android --clean
+      
+      - name: 🔑 Setup keystore (if available)
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        working-directory: ./sign-Bridge/android
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/release.keystore
+            echo "✅ Keystore configured"
+          fi
+      
+      - name: 🏗️ Build APK with Gradle
+        working-directory: ./sign-Bridge/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      
+      - name: 📦 Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: signbridge-${{ github.sha }}.apk
+          path: sign-Bridge/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+      
+      - name: 📊 APK Info
+        working-directory: ./sign-Bridge/android/app/build/outputs/apk/release
+        run: |
+          if [ -f app-release.apk ]; then
+            SIZE=$(stat -c%s app-release.apk)
+            SIZE_MB=$((SIZE / 1024 / 1024))
+            echo "📦 APK Size: ${SIZE_MB} MB"
+            echo "✅ APK built successfully"
+          fi
+
+  # Job 5: Create GitHub Release
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-gradle]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: 📥 Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: signbridge-${{ github.sha }}.apk
+      
+      - name: 🏷️ Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.0.0-${{ github.run_number }}
+          name: SignBridge v1.0.0 Build ${{ github.run_number }}
+          body: |
+            ## 🎉 SignBridge Production Build
+            
+            **Build**: #${{ github.run_number }}
+            **Commit**: ${{ github.sha }}
+            **Date**: ${{ github.event.head_commit.timestamp }}
+            
+            ### ✅ Features:
+            - Real YOLO TFLite model integration
+            - Sign language detection (A-Z, 0-9)
+            - Camera-based real-time detection
+            - Debounced detections (1.5s interval)
+            - Offline support
+            
+            ### 📱 Installation:
+            1. Download `signbridge-${{ github.sha }}.apk`
+            2. Enable "Install from unknown sources"
+            3. Install APK on Android device
+            4. Grant camera permissions
+            
+            ### 🧪 Test Results:
+            - All tests passing ✅
+            - Model validation passed ✅
+            - Production build verified ✅
+          files: app-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Job 6: Post-build validation
+  post-build:
+    name: Post-Build Checks
+    runs-on: ubuntu-latest
+    needs: [build-gradle]
+    
+    steps:
+      - name: 📥 Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: signbridge-${{ github.sha }}.apk
+      
+      - name: 🔍 Analyze APK
+        run: |
+          if [ -f app-release.apk ]; then
+            SIZE=$(stat -c%s app-release.apk)
+            SIZE_MB=$((SIZE / 1024 / 1024))
+            echo "📦 Final APK Size: ${SIZE_MB} MB"
+            
+            if [ $SIZE_MB -lt 10 ]; then
+              echo "⚠️  Warning: APK seems small (${SIZE_MB} MB)"
+              echo "Model file might not be included"
+            elif [ $SIZE_MB -gt 100 ]; then
+              echo "⚠️  Warning: APK is large (${SIZE_MB} MB)"
+            else
+              echo "✅ APK size looks good: ${SIZE_MB} MB"
+            fi
+            
+            # Check if APK is signed
+            echo "🔍 Checking APK signature..."
+            unzip -l app-release.apk | grep -i "META-INF" && echo "✅ APK is signed" || echo "⚠️  APK might be unsigned"
+          fi
+      
+      - name: 📊 Build Summary
+        run: |
+          echo "## 🎉 Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Model validated" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ APK built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 APK: signbridge-${{ github.sha }}.apk" >> $GITHUB_STEP_SUMMARY

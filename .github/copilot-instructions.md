@@ -3,6 +3,8 @@
 ## Project Overview
 **SignBridge** is a React Native + Expo mobile app for learning Chilean Sign Language (Lengua de Señas Chilena) through real-time gesture detection. It uses a YOLO TFLite model to recognize alphabet (A-Z) and numbers (0-9) via the device camera, with an intelligent fallback system that simulates detections when the ML model is unavailable.
 
+**⚠️ CRITICAL**: The app is currently in **simulation mode**. Real TFLite model integration is pending (see `REAL_MODEL_INTEGRATION.md`). The detection service (detectionService.js) has infrastructure ready but needs actual model inference implementation.
+
 ## Critical Architecture Patterns
 
 ### 1. Dual-Mode Detection System
@@ -129,11 +131,31 @@ Edit `DETECTION_CONFIG` in `detectionService.js`:
 - `detectionInterval`: Change debounce timing (ms)
 - Don't change during active detection loop
 
-### Integrating Real Model
-1. Place `.tflite` file at `assets/Modelo/runs/detect/train/weights/best_float16.tflite`
-2. Implement `loadModel()` in detectionService.js with TensorFlow.js
-3. Replace `simulateDetection()` calls with `processImageWithModel()`
-4. See `BACKEND_API_GUIDE.md` for Flask/Python backend option
+### Integrating Real Model (REQUIRED FOR PRODUCTION)
+**Current Status**: App runs in simulation mode - random detections generated
+
+**Integration Options** (see `REAL_MODEL_INTEGRATION.md` for details):
+
+1. **TFLite Native** (Recommended for production):
+   - Install: `npm install react-native-tflite`
+   - Place model: `assets/Modelo/runs/detect/train/weights/best_float16.tflite`
+   - Update `loadModel()` in detectionService.js (lines 102-144)
+   - Update `processImageWithModel()` (lines 180-220)
+   - Rebuild: `npx expo prebuild`
+
+2. **TensorFlow.js** (Cross-platform):
+   - Install: `@tensorflow/tfjs @tensorflow/tfjs-react-native`
+   - Convert model to TFLite format
+   - Implement inference in detectionService.js
+
+3. **API Backend** (Quick testing):
+   - Deploy Flask API from `BACKEND_API_GUIDE.md`
+   - Update detectionService.js to call API endpoint
+   - No native dependencies needed
+
+**Key Files to Modify**:
+- `detectionService.js`: Lines 102-144 (loadModel), Lines 180-220 (processImageWithModel)
+- Current state: Throws "Módulo TFLite no implementado" and falls back to simulation
 
 ## Integration Points
 

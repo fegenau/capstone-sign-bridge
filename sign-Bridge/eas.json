@@ -24,6 +24,16 @@
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
       },
+      "channel": "production",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "production-aab": {
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease"
+      },
       "channel": "production"
     }
   },

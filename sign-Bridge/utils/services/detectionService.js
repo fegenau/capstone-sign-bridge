@@ -1,6 +1,15 @@
 // src/utils/services/detectionService.js
 import { Platform, NativeModules } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { Asset } from 'expo-asset';
+
+// Import TFLite module (will be used when model is available)
+let TFLite = null;
+try {
+  TFLite = require('react-native-tflite').default;
+} catch (error) {
+  console.warn('⚠️ TFLite module not available, using simulation mode');
+}
 
 // Alfabeto y números disponibles para detección
 const ALPHABET = [
@@ -97,7 +106,7 @@ export class DetectionService {
 
   /**
    * Carga el modelo TFLite
-   * Nota: Requiere implementación nativa o TensorFlow.js compatible
+   * Implementa carga real del modelo YOLO TFLite para detección de lenguaje de señas
    */
   async loadModel() {
     if (this.isModelLoaded) {
@@ -109,35 +118,60 @@ export class DetectionService {
       this.modelLoadAttempts++;
       console.log(`🔄 Intentando cargar modelo (intento ${this.modelLoadAttempts})...`);
       
-      // Verificar si el archivo del modelo existe
-      const modelUri = `${FileSystem.documentDirectory}${DETECTION_CONFIG.modelPath}`;
-      const modelExists = await this.checkModelExists(modelUri);
-      
-      if (!modelExists) {
-        throw new Error('Archivo del modelo no encontrado');
+      // Verificar si TFLite está disponible
+      if (!TFLite) {
+        throw new Error('Módulo TFLite no disponible - requiere rebuild nativo');
       }
       
-      // TODO: Implementar carga del modelo TFLite
-      // Opciones:
-      // 1. Usar TensorFlow Lite React Native (requiere módulo nativo)
-      // 2. Usar ML Kit de Google (Android/iOS)
-      // 3. Usar ONNX Runtime para React Native
-      
-      // Por ahora, simular que el modelo no se puede cargar
-      throw new Error('Módulo TFLite no implementado - usando simulación');
-      
-      // Cuando se implemente:
-      // this.model = await loadTFLiteModel(modelUri);
-      // this.isModelLoaded = true;
-      // console.log('✅ Modelo TFLite cargado exitosamente');
+      // Intentar cargar el modelo desde assets
+      try {
+        // Cargar asset del modelo
+        const modelAsset = Asset.fromModule(
+          require('../../assets/Modelo/runs/detect/train/weights/best_float16.tflite')
+        );
+        
+        await modelAsset.downloadAsync();
+        const modelUri = modelAsset.localUri || modelAsset.uri;
+        
+        console.log(`📦 Modelo localizado en: ${modelUri}`);
+        
+        // Verificar que sea un archivo TFLite válido (al menos 1KB)
+        const fileInfo = await FileSystem.getInfoAsync(modelUri);
+        if (!fileInfo.exists || fileInfo.size < 1024) {
+          throw new Error('Archivo del modelo es inválido o es un placeholder');
+        }
+        
+        // Inicializar TFLite con el modelo
+        await TFLite.loadModel({
+          model: modelUri,
+          numThreads: 4, // Usar 4 threads para mejor performance
+        });
+        
+        this.model = TFLite;
+        this.isModelLoaded = true;
+        console.log('✅ Modelo TFLite cargado exitosamente');
+        
+        // Detener reintentos
+        if (this.modelRetryTimer) {
+          clearTimeout(this.modelRetryTimer);
+          this.modelRetryTimer = null;
+        }
+        
+        return;
+      } catch (assetError) {
+        console.log('⚠️ No se pudo cargar modelo desde assets:', assetError.message);
+        throw new Error('Archivo del modelo no encontrado en assets');
+      }
       
     } catch (error) {
       console.error('❌ Error al cargar modelo:', error.message);
       this.isModelLoaded = false;
       console.log('⚠️ Usando modo simulación como fallback');
       
-      // Programar reintento
-      this.scheduleModelRetry();
+      // Programar reintento solo si es un error temporal
+      if (!error.message.includes('no disponible')) {
+        this.scheduleModelRetry();
+      }
     }
   }
 
@@ -174,7 +208,7 @@ export class DetectionService {
 
   /**
    * Procesa una imagen con el modelo TFLite
-   * @param {Object} imageData - Datos de la imagen de la cámara
+   * @param {Object} imageData - Datos de la imagen de la cámara (URI o base64)
    * @returns {Promise<Object|null>} Resultado de detección
    */
   async processImageWithModel(imageData) {
@@ -183,18 +217,20 @@ export class DetectionService {
     }
 
     try {
-      // TODO: Implementar procesamiento real con TFLite
-      // Cuando se agregue el módulo nativo:
-      // 
-      // const result = await TFLiteModule.detectSignLanguage(imageData, {
-      //   confidenceThreshold: DETECTION_CONFIG.minConfidence,
-      //   maxDetections: 1
-      // });
-      //
-      // return this.processPredictions(result);
+      // Ejecutar inferencia con TFLite
+      const results = await this.model.runModelOnImage({
+        path: imageData.uri || imageData,
+        imageMean: 0.0, // Normalización YOLO
+        imageStd: 255.0,
+        numResults: 5, // Top 5 detecciones
+        threshold: DETECTION_CONFIG.minConfidence, // Confianza mínima 70%
+      });
       
-      // Por ahora retornar null para usar fallback
-      return null;
+      console.log(`🔍 Detecciones recibidas: ${results?.length || 0}`);
+      
+      // Procesar resultados del modelo
+      return this.processPredictions(results);
+      
     } catch (error) {
       console.error('❌ Error al procesar imagen con modelo:', error);
       return null;
@@ -202,12 +238,12 @@ export class DetectionService {
   }
 
   /**
-   * Procesa las predicciones del modelo YOLO
-   * @param {Object} predictions - Predicciones del modelo
+   * Procesa las predicciones del modelo YOLO/TFLite
+   * @param {Array} predictions - Array de predicciones del modelo
    * @returns {Object|null} Resultado procesado
    */
   async processPredictions(predictions) {
-    if (!predictions || !predictions.detections || predictions.detections.length === 0) {
+    if (!predictions || !Array.isArray(predictions) || predictions.length === 0) {
       return null;
     }
 
@@ -215,19 +251,29 @@ export class DetectionService {
     let maxConfidence = 0;
 
     // Buscar la detección con mayor confianza
-    for (const detection of predictions.detections) {
-      const confidence = detection.confidence;
+    for (const detection of predictions) {
+      // TFLite puede retornar diferentes formatos
+      // Formato 1: { confidence, label, index }
+      // Formato 2: { confidence, className, classId }
+      const confidence = detection.confidence || 0;
+      const classLabel = detection.label || detection.className || '';
+      const classIndex = detection.index !== undefined ? detection.index : detection.classId;
       
       if (confidence > maxConfidence && confidence >= DETECTION_CONFIG.minConfidence) {
         maxConfidence = confidence;
         
         // Obtener el símbolo detectado
-        const classIndex = detection.classId;
-        const allSymbols = [...ALPHABET, ...NUMBERS];
-        const detectedSymbol = allSymbols[classIndex] || detection.className || '?';
+        // Primero intentar usar el label/className directamente
+        let detectedSymbol = classLabel;
+        
+        // Si no hay label, usar el índice para mapear al array de símbolos
+        if (!detectedSymbol && classIndex !== undefined) {
+          const allSymbols = [...ALPHABET, ...NUMBERS];
+          detectedSymbol = allSymbols[classIndex] || '?';
+        }
         
         bestDetection = {
-          letter: detectedSymbol,
+          letter: detectedSymbol.toUpperCase(),
           confidence: Math.round(confidence * 100),
           timestamp: Date.now()
         };
