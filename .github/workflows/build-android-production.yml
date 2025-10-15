@@ -1,0 +1,262 @@
+name: 🚀 Build Android APK (Production Ready)
+
+on:
+  push:
+    branches: 
+      - main
+      - develop
+      - 'feature/CSB-47/**'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: 'Build profile to use'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - production
+
+jobs:
+  # ============================================
+  # Job 1: Build Android APK with EAS
+  # ============================================
+  build-android-apk:
+    name: 📱 Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏗️ Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+          cache-dependency-path: sign-Bridge/package-lock.json
+
+      - name: 📦 Install dependencies
+        working-directory: ./sign-Bridge
+        run: |
+          echo "📦 Installing npm packages..."
+          npm ci --legacy-peer-deps
+          echo "✅ Dependencies installed successfully"
+
+      - name: 🔧 Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📋 Verify Expo configuration
+        working-directory: ./sign-Bridge
+        run: |
+          echo "📋 Checking Expo configuration..."
+          npx expo config --type public
+          echo "✅ Configuration valid"
+
+      - name: 🔨 Configure EAS Build (if needed)
+        working-directory: ./sign-Bridge
+        run: |
+          if [ ! -f "eas.json" ]; then
+            echo "📝 Creating eas.json configuration..."
+            cat > eas.json << 'EOF'
+          {
+            "cli": {
+              "version": ">= 5.0.0"
+            },
+            "build": {
+              "preview": {
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleRelease"
+                }
+              },
+              "production": {
+                "android": {
+                  "buildType": "apk"
+                }
+              }
+            },
+            "submit": {
+              "production": {}
+            }
+          }
+          EOF
+            echo "✅ eas.json created"
+          else
+            echo "✅ eas.json already exists"
+          fi
+
+      - name: 🏗️ Build Android APK with EAS
+        working-directory: ./sign-Bridge
+        run: |
+          BUILD_PROFILE="${{ github.event.inputs.build_profile || 'preview' }}"
+          echo "🚀 Starting EAS Build with profile: $BUILD_PROFILE"
+          
+          # Build APK
+          npx eas-cli build --platform android --profile $BUILD_PROFILE --non-interactive --no-wait
+          
+          echo "✅ Build submitted successfully!"
+          echo "📱 Check build status at: https://expo.dev/"
+
+      - name: 📊 Build Summary
+        if: always()
+        run: |
+          echo "## 📱 Android APK Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Platform**: Android" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Type**: APK" >> $GITHUB_STEP_SUMMARY
+          echo "- **Profile**: ${{ github.event.inputs.build_profile || 'preview' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 Check build progress: [Expo Dashboard](https://expo.dev/)" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # Job 2: Alternative - Local Gradle Build
+  # ============================================
+  build-android-gradle:
+    name: 🏗️ Build APK with Gradle (Fallback)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+          cache-dependency-path: sign-Bridge/package-lock.json
+
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: 🤖 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 Install dependencies
+        working-directory: ./sign-Bridge
+        run: npm ci --legacy-peer-deps
+
+      - name: 🔧 Setup Expo
+        working-directory: ./sign-Bridge
+        run: |
+          npm install -g expo-cli
+          npx expo install --fix
+
+      - name: 🏗️ Prebuild Android
+        working-directory: ./sign-Bridge
+        run: |
+          echo "🏗️ Generating native Android project..."
+          npx expo prebuild --platform android --clean
+          echo "✅ Prebuild completed"
+
+      - name: 🔨 Build APK with Gradle
+        working-directory: ./sign-Bridge/android
+        run: |
+          echo "🔨 Building release APK..."
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          echo "✅ APK built successfully!"
+
+      - name: 📦 Find and verify APK
+        id: find-apk
+        run: |
+          APK_PATH=$(find ./sign-Bridge/android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "❌ APK not found!"
+            exit 1
+          fi
+          
+          echo "✅ APK found at: $APK_PATH"
+          APK_SIZE=$(du -h "$APK_PATH" | cut -f1)
+          echo "📦 APK size: $APK_SIZE"
+          
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "apk_size=$APK_SIZE" >> $GITHUB_OUTPUT
+
+      - name: 📤 Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SignBridge-Android-${{ github.run_number }}
+          path: ${{ steps.find-apk.outputs.apk_path }}
+          retention-days: 30
+
+      - name: 📊 Build Success Summary
+        run: |
+          echo "## 🎉 APK Build Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **APK Size**: ${{ steps.find-apk.outputs.apk_size }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Location**: \`${{ steps.find-apk.outputs.apk_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Download**: Available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 Download APK from the 'Artifacts' section above" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # Job 3: Create GitHub Release (on main)
+  # ============================================
+  create-release:
+    name: 📦 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-android-gradle
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    
+    steps:
+      - name: 📥 Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SignBridge-Android-${{ github.run_number }}
+          path: ./apk
+
+      - name: 📝 Generate release notes
+        id: release-notes
+        run: |
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "## SignBridge Android APK - Build #${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### 📱 Installation" >> $GITHUB_OUTPUT
+          echo "1. Download the APK file below" >> $GITHUB_OUTPUT
+          echo "2. Enable 'Install from Unknown Sources' on your Android device" >> $GITHUB_OUTPUT
+          echo "3. Install the APK" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### 🔧 Build Information" >> $GITHUB_OUTPUT
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "- **Build Date**: $(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### ✨ Features" >> $GITHUB_OUTPUT
+          echo "- Real-time sign language detection (A-Z, 0-9)" >> $GITHUB_OUTPUT
+          echo "- Chilean Sign Language support" >> $GITHUB_OUTPUT
+          echo "- YOLO TFLite model integration" >> $GITHUB_OUTPUT
+          echo "- Automatic fallback simulation mode" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.0.0-build.${{ github.run_number }}
+          name: SignBridge v1.0.0 Build #${{ github.run_number }}
+          body: ${{ steps.release-notes.outputs.RELEASE_NOTES }}
+          files: ./apk/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
