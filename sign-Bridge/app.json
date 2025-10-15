@@ -8,6 +8,11 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#000000",
     "primaryColor": "#00FF88",
+    "assetBundlePatterns": [
+      "**/*",
+      "assets/**/*",
+      "assets/Modelo/**/*"
+    ],
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#000000"

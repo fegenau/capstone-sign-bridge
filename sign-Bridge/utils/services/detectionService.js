@@ -113,29 +113,48 @@ export class DetectionService {
       this.modelLoadAttempts++;
       console.log(`🔄 Intentando cargar modelo TFLite (intento ${this.modelLoadAttempts})...`);
       
-      // Cargar el asset del modelo
-      const assetUri = ExpoAsset.fromModule(
-        require('../../assets/Modelo/best_float16.tflite')
-      );
+      let modelUri = null;
       
-      // Descargar/copiar el asset si es necesario
-      await assetUri.downloadAsync();
-      const modelUri = assetUri.localUri || assetUri.uri;
-      
-      console.log(`📦 Asset del modelo localizado en: ${modelUri}`);
-      
-      // Verificar que existe
-      const info = await FileSystem.getInfoAsync(modelUri);
-      if (!info.exists) {
-        throw new Error('Archivo del modelo no encontrado');
+      // MÉTODO 1: Intentar cargar desde Android assets directamente (más confiable)
+      if (Platform.OS === 'android') {
+        const androidAssetPath = 'Modelo/best_float16.tflite';
+        console.log(`📱 Intentando cargar desde Android assets: ${androidAssetPath}`);
+        
+        try {
+          this.model = await TensorflowModel.loadFromFile(androidAssetPath);
+          modelUri = androidAssetPath;
+          console.log('✅ Modelo cargado directamente desde Android assets');
+        } catch (androidError) {
+          console.log('⚠️ No se pudo cargar desde Android assets, intentando método Expo...');
+        }
       }
       
-      const modelSize = info.size;
-      console.log(`✅ Archivo del modelo existe (${(modelSize / 1024 / 1024).toFixed(2)} MB)`);
-      
-      // Cargar el modelo con react-native-fast-tflite
-      console.log('🚀 Cargando modelo TFLite nativo...');
-      this.model = await TensorflowModel.loadFromFile(modelUri);
+      // MÉTODO 2: Fallback a Expo Asset (para iOS o si Android falla)
+      if (!this.model) {
+        console.log('📦 Intentando cargar con Expo Asset...');
+        const assetUri = ExpoAsset.fromModule(
+          require('../../assets/Modelo/best_float16.tflite')
+        );
+        
+        // Descargar/copiar el asset si es necesario
+        await assetUri.downloadAsync();
+        modelUri = assetUri.localUri || assetUri.uri;
+        
+        console.log(`📦 Asset del modelo localizado en: ${modelUri}`);
+        
+        // Verificar que existe
+        const info = await FileSystem.getInfoAsync(modelUri);
+        if (!info.exists) {
+          throw new Error('Archivo del modelo no encontrado');
+        }
+        
+        const modelSize = info.size;
+        console.log(`✅ Archivo del modelo existe (${(modelSize / 1024 / 1024).toFixed(2)} MB)`);
+        
+        // Cargar el modelo con react-native-fast-tflite
+        console.log('🚀 Cargando modelo TFLite nativo...');
+        this.model = await TensorflowModel.loadFromFile(modelUri);
+      }
       
       this.modelUri = modelUri;
       this.isModelLoaded = true;
