@@ -57,13 +57,16 @@ jobs:
           npm run validate-model
           
           MODEL_PATH="assets/Modelo/runs/detect/train/weights/best_float16.tflite"
-          SIZE=$(stat -c%s "$MODEL_PATH")
-          SIZE_MB=$((SIZE / 1024 / 1024))
-          
-          echo "valid=true" >> $GITHUB_OUTPUT
-          echo "size=${SIZE_MB}" >> $GITHUB_OUTPUT
-          
-          echo "✅ Model validated: ${SIZE_MB} MB"
+          if [ -f "$MODEL_PATH" ]; then
+            SIZE=$(wc -c < "$MODEL_PATH")
+            SIZE_MB=$((SIZE / 1024 / 1024))
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "size=${SIZE_MB}" >> $GITHUB_OUTPUT
+            echo "✅ Model validated: ${SIZE_MB} MB"
+          else
+            echo "❌ Model file not found: $MODEL_PATH"
+            exit 1
+          fi
       
       - name: 📊 Model Info Summary
         run: |
@@ -455,8 +458,9 @@ jobs:
           echo "## 🔍 Build Validation" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ -f artifacts/signbridge-android-*/app-release.apk ]; then
-            SIZE=$(stat -c%s artifacts/signbridge-android-*/app-release.apk)
+          APK_FILE=$(find artifacts/signbridge-android-* -name "app-release.apk" -type f | head -n 1)
+          if [ -f "$APK_FILE" ]; then
+            SIZE=$(wc -c < "$APK_FILE")
             SIZE_MB=$((SIZE / 1024 / 1024))
             echo "### 🤖 Android APK" >> $GITHUB_STEP_SUMMARY
             echo "- Size: ${SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY
@@ -473,8 +477,9 @@ jobs:
       - name: 🔍 Validate iOS Build
         if: needs.build-ios-app.result == 'success'
         run: |
-          if [ -f artifacts/signbridge-ios-*/SignBridge-Simulator.app.zip ]; then
-            SIZE=$(stat -c%s artifacts/signbridge-ios-*/SignBridge-Simulator.app.zip)
+          IOS_FILE=$(find artifacts/signbridge-ios-* -name "SignBridge-Simulator.app.zip" -type f | head -n 1)
+          if [ -f "$IOS_FILE" ]; then
+            SIZE=$(wc -c < "$IOS_FILE")
             SIZE_MB=$((SIZE / 1024 / 1024))
             echo "### 🍎 iOS App" >> $GITHUB_STEP_SUMMARY
             echo "- Size: ${SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY

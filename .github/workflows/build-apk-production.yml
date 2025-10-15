@@ -59,7 +59,7 @@ jobs:
         run: |
           MODEL_PATH="assets/Modelo/runs/detect/train/weights/best_float16.tflite"
           if [ -f "$MODEL_PATH" ]; then
-            SIZE=$(stat -f%z "$MODEL_PATH" 2>/dev/null || stat -c%s "$MODEL_PATH" 2>/dev/null)
+            SIZE=$(wc -c < "$MODEL_PATH")
             SIZE_MB=$((SIZE / 1024 / 1024))
             echo "📦 Model size: ${SIZE_MB} MB"
             if [ $SIZE_MB -lt 1 ]; then
@@ -241,7 +241,7 @@ jobs:
         working-directory: ./sign-Bridge/android/app/build/outputs/apk/release
         run: |
           if [ -f app-release.apk ]; then
-            SIZE=$(stat -c%s app-release.apk)
+            SIZE=$(wc -c < app-release.apk)
             SIZE_MB=$((SIZE / 1024 / 1024))
             echo "📦 APK Size: ${SIZE_MB} MB"
             echo "✅ APK built successfully"
@@ -310,7 +310,7 @@ jobs:
       - name: 🔍 Analyze APK
         run: |
           if [ -f app-release.apk ]; then
-            SIZE=$(stat -c%s app-release.apk)
+            SIZE=$(wc -c < app-release.apk)
             SIZE_MB=$((SIZE / 1024 / 1024))
             echo "📦 Final APK Size: ${SIZE_MB} MB"
             
