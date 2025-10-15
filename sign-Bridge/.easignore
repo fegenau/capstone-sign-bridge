@@ -1,0 +1,54 @@
+# EAS Build - Archivos a ignorar durante upload
+
+# Android build outputs
+android/app/build/
+android/build/
+android/.gradle/
+android/app/.cxx/
+
+# Node modules (se reinstalan en EAS)
+node_modules/
+
+# iOS (no lo necesitamos)
+ios/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Large model training data (solo necesitamos el .tflite)
+assets/Modelo/runs/
+assets/Modelo/train/
+assets/Modelo/test/
+assets/Modelo/valid/
+assets/Modelo/*.pt
+assets/Modelo/*.yaml
+assets/Modelo/*.txt
+
+# Git
+.git/
+
+# Documentation (no necesaria para build)
+*.md
+!README.md
