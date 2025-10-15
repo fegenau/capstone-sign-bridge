@@ -18,6 +18,11 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Credentials (NEVER commit these)
+credentials/
+credentials.json
+keystore-base64.txt
+
 # Metro
 .metro-health-check*
 
