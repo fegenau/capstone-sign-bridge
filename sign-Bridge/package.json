@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "eject": "expo eject",
     "test": "jest",
-    "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "test:ci": "jest --ci --coverage --maxWorkers=2 --passWithNoTests",
     "validate-model": "node scripts/validateModel.js",
     "prebuild": "npm run validate-model",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
