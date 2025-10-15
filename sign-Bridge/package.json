@@ -10,6 +10,10 @@
     "web": "expo start --web",
     "eject": "expo eject",
     "test": "jest",
+    "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "validate-model": "node scripts/validateModel.js",
+    "prebuild": "npm run validate-model",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "eas-build-post-install": "node scripts/eas-build-post-install.js"
   },
   "dependencies": {
@@ -37,6 +41,7 @@
     "react-native": "0.81.4",
     "react-native-fast-tflite": "^1.6.1",
     "react-native-gesture-handler": "~2.28.0",
+    "react-native-tflite": "^0.0.2",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

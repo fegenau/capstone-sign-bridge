@@ -13,23 +13,21 @@
       "assets/**/*",
       "assets/Modelo/**/*"
     ],
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.signbridge.app",
       "infoPlist": {
         "NSCameraUsageDescription": "SignBridge necesita acceso a la cámara para detectar letras del alfabeto de señas."
       }
     },
     "android": {
+      "package": "com.signbridge.app",
+      "versionCode": 1,
       "permissions": [
         "CAMERA",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.anonymous.signbridge"
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -62,6 +60,7 @@
       "eas": {
         "projectId": "132440fa-b9a7-4abd-9fc5-80920cfb94be"
       }
-    }
+    },
+    "owner": "seedbastian"
   }
 }
