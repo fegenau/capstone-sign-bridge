@@ -11,32 +11,22 @@
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug"
       },
-      "node": "22.11.0",
-      "npm": {
-        "install": "npm install --legacy-peer-deps"
-      }
+      "node": "22.11.0"
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
-      "node": "22.11.0",
-      "npm": {
-        "install": "npm install --legacy-peer-deps"
-      }
+      "node": "22.11.0"
     },
     "preview-debug": {
       "extends": "preview",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug",
-        "credentialsSource": "local"
+        "gradleCommand": ":app:assembleDebug"
       },
       "node": "22.11.0",
-      "npm": {
-        "install": "npm install --legacy-peer-deps"
-      },
       "env": {
         "INCLUDE_TFLITE_MODEL": "true"
       }
@@ -46,10 +36,7 @@
       "android": {
         "buildType": "apk"
       },
-      "node": "22.11.0",
-      "npm": {
-        "install": "npm install --legacy-peer-deps"
-      }
+      "node": "22.11.0"
     }
   },
   "submit": {
