@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "132440fa-b9a7-4abd-9fc5-80920cfb94be"
+      }
+    },
+    "android": {
+      "package": "com.seedbastian.signbridge"
+    }
+  }
+}

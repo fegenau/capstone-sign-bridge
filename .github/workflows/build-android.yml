@@ -39,7 +39,13 @@ jobs:
         working-directory: ./sign-Bridge
         run: npx expo prebuild --platform android --clean
       
-      - name: 📝 Create splash screen logo
+      - name: � Copy TFLite model to Android assets
+        run: |
+          mkdir -p sign-Bridge/android/app/src/main/assets/Modelo
+          cp sign-Bridge/assets/Modelo/best_float16.tflite sign-Bridge/android/app/src/main/assets/Modelo/
+          echo "✅ Model copied: $(ls -lh sign-Bridge/android/app/src/main/assets/Modelo/)"
+      
+      - name: �📝 Create splash screen logo
         run: |
           mkdir -p sign-Bridge/android/app/src/main/res/drawable
           cat > sign-Bridge/android/app/src/main/res/drawable/splashscreen_logo.xml << 'EOF'
