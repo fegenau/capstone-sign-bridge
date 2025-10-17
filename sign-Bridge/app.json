@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "SignBridge",
+    "slug": "signbridge",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
+    "primaryColor": "#00FF88",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "SignBridge necesita acceso a la cámara para detectar letras del alfabeto de señas."
+      }
+    },
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.fegenau.signbridge"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SignBridge necesita acceso a la cámara para detectar letras del alfabeto de señas."
+        }
+      ],
+      "expo-font",
+      "expo-router",
+      "expo-web-browser"
+    ]
+  }
+}
