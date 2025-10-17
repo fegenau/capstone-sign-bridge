@@ -9,6 +9,7 @@ import HomeScreen from './screens/HomeScreen';
 import AlphabetDetectionScreen from './screens/AlphabetDetectionScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NumberDetectionScreen from './screens/NumberDetectionScreen';
+import DictionaryScreen from './screens/DicctionaryScreen';
 
 const Stack = createStackNavigator();
 
@@ -38,12 +39,12 @@ const App = () => {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer theme={navigationTheme}>
+      {/* <NavigationContainer theme={navigationTheme}>
         <ExpoStatusBar 
           style="light" 
           backgroundColor="#000000"
           translucent={false}
-        />
+        /> */}
         
         <Stack.Navigator 
           initialRouteName="Splash"
@@ -93,7 +94,7 @@ const App = () => {
             name="AlphabetDetection" 
             component={AlphabetDetectionScreen}
             options={{
-              title: 'Detección de Alfabeto',
+              title: 'Detección',
               headerShown: false,
             }}
           />
@@ -122,30 +123,12 @@ const App = () => {
             }}
           />
           
-          {/* Pantallas futuras - Placeholders */}
-          <Stack.Screen 
-            name="Practice" 
-            component={ComingSoonScreen}
-            options={{
-              title: 'Modo Práctica',
-              headerShown: true,
-              headerStyle: {
-                backgroundColor: '#1A1A1A',
-                shadowOpacity: 0,
-                elevation: 0,
-              },
-              headerTintColor: '#FFFFFF',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
-            }}
-          />
           
           <Stack.Screen 
             name="Dictionary" 
-            component={ComingSoonScreen}
+            component={DictionaryScreen}
             options={{
-              title: 'Diccionario',
+              title: '',
               headerShown: true,
               headerStyle: {
                 backgroundColor: '#1A1A1A',
@@ -158,8 +141,26 @@ const App = () => {
               },
             }}
           />
+            {/* Pantallas futuras - Placeholders */}
+            <Stack.Screen 
+              name="Practice" 
+              component={ComingSoonScreen}
+              options={{
+                title: 'Modo Práctica',
+                headerShown: true,
+                headerStyle: {
+                  backgroundColor: '#1A1A1A',
+                  shadowOpacity: 0,
+                  elevation: 0,
+                },
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: {
+                  fontWeight: 'bold',
+                },
+              }}
+            />
           
-          <Stack.Screen 
+          {/* <Stack.Screen 
             name="Progress" 
             component={ComingSoonScreen}
             options={{
@@ -175,7 +176,7 @@ const App = () => {
                 fontWeight: 'bold',
               },
             }}
-          />
+          /> */}
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
