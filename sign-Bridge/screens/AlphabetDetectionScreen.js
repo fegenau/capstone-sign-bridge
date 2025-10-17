@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,16 @@ import {
   Platform,
   Alert,
   ScrollView,
-} from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import DetectionOverlay from '../components/camera/DetectionOverlay';
-import { detectionService } from '../utils/services/detectionService';
+} from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import DetectionOverlay from "../components/camera/DetectionOverlay";
+import { detectionService } from "../utils/services/detectionService";
 
 const AlphabetDetectionScreen = ({ navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState('back');
+  const [facing, setFacing] = useState("back");
   const [isLoading, setIsLoading] = useState(true);
   const [detectedLetter, setDetectedLetter] = useState(null);
   const [confidence, setConfidence] = useState(0);
@@ -32,12 +32,14 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const screenMountedRef = useRef(true);
 
   useEffect(() => {
-  screenMountedRef.current = true;
-    if (Platform.OS === 'web') {
+    screenMountedRef.current = true;
+    if (Platform.OS === "web") {
       setIsLoading(true);
       const getWebcam = async () => {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
           setWebStream(stream);
           setWebError(null);
           setIsLoading(false);
@@ -47,7 +49,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
           }
           startDetection();
         } catch (err) {
-          setWebError('No se pudo acceder a la cámara.');
+          setWebError("No se pudo acceder a la cámara.");
           setIsLoading(false);
         }
       };
@@ -55,7 +57,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       return () => {
         detectionService.stopDetection();
         if (webStream) {
-          webStream.getTracks().forEach(track => track.stop());
+          webStream.getTracks().forEach((track) => track.stop());
         }
         screenMountedRef.current = false;
       };
@@ -92,10 +94,10 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     try {
       setIsDetectionActive(true);
       await detectionService.startDetection();
-      console.log('Detección iniciada');
+      console.log("Detección iniciada");
     } catch (error) {
-      console.error('Error al iniciar detección:', error);
-      Alert.alert('Error', 'No se pudo iniciar la detección');
+      console.error("Error al iniciar detección:", error);
+      Alert.alert("Error", "No se pudo iniciar la detección");
     }
   };
 
@@ -106,15 +108,15 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       setDetectedLetter(null);
       setConfidence(0);
       setIsProcessing(false);
-      console.log('Detección detenida');
+      console.log("Detección detenida");
     } catch (error) {
-      console.error('Error al detener detección:', error);
+      console.error("Error al detener detección:", error);
     }
   };
 
   const forceDetection = async () => {
     try {
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         // En web mantenemos la simulación/flujo actual
         await detectionService.forceDetection();
         return;
@@ -122,7 +124,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 
       // En nativo: tomar una foto rápida y pasar el URI al servicio
       if (!cameraRef.current || !isCameraReady) {
-        console.warn('Cámara no lista aún para capturar');
+        console.warn("Cámara no lista aún para capturar");
         await detectionService.forceDetection();
         return;
       }
@@ -137,7 +139,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       while (!done && attempts < 2) {
         try {
           // pequeña espera por si acaba de montarse
-          await new Promise(r => setTimeout(r, attempts === 0 ? 50 : 200));
+          await new Promise((r) => setTimeout(r, attempts === 0 ? 50 : 200));
           const photo = await cameraRef.current.takePictureAsync({
             quality: 0.5,
             skipProcessing: true,
@@ -161,8 +163,8 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       }
       if (!done && lastError) throw lastError;
     } catch (error) {
-      console.error('Error en detección manual:', error);
-      Alert.alert('Error', 'Error en detección manual');
+      console.error("Error en detección manual:", error);
+      Alert.alert("Error", "Error en detección manual");
     } finally {
       setIsCapturing(false);
     }
@@ -171,7 +173,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const toggleCameraFacing = () => {
     // Al cambiar de cámara, la vista se re-monta; marcamos como no lista hasta onCameraReady
     setIsCameraReady(false);
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+    setFacing((current) => (current === "back" ? "front" : "back"));
   };
 
   const toggleDetection = () => {
@@ -186,7 +188,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     Alert.alert(
       `Letra ${letter}`,
       `Has seleccionado la letra ${letter}. Esta función se expandirá para mostrar más información sobre cómo hacer esta letra.`,
-      [{ text: 'OK', style: 'default' }]
+      [{ text: "OK", style: "default" }]
     );
   };
 
@@ -200,7 +202,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     );
   }
 
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     if (webError) {
       return (
         <View style={styles.centerContainer}>
@@ -241,32 +243,37 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       {/* Header */}
-<View style={styles.header}>
-  <TouchableOpacity 
-    style={styles.backButton}
-    onPress={() => navigation.goBack()}
-  >
-    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-  </TouchableOpacity>
-  <View style={styles.headerContent}>
-    <Text style={styles.headerTitle}>SignBridge</Text>
-    <Text style={styles.headerSubtitle}>Detección de Alfabeto</Text>
-  </View>
-  <View style={styles.headerSpacer} />
-</View>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>SignBridge</Text>
+          <Text style={styles.headerSubtitle}>Detección de Alfabeto</Text>
+        </View>
+        <View style={styles.headerSpacer} />
+      </View>
 
       {/* Vista de Cámara multiplataforma */}
       <View style={styles.cameraContainer}>
-        {Platform.OS === 'web' ? (
+        {Platform.OS === "web" ? (
           <>
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222' }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                background: "#222",
+              }}
               id="webcam-video-alphabet"
             />
             {/* Overlay de detección */}
@@ -285,7 +292,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
               active={true}
               onCameraReady={() => setIsCameraReady(true)}
               onMountError={(e) => {
-                console.error('Error montando cámara:', e?.nativeEvent || e);
+                console.error("Error montando cámara:", e?.nativeEvent || e);
                 setIsCameraReady(false);
               }}
               ref={cameraRef}
@@ -320,7 +327,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
               color={isDetectionActive ? "#00FF88" : "#FFB800"}
             />
             <Text style={styles.statusText}>
-              {isDetectionActive ? 'Detectando' : 'Pausado'}
+              {isDetectionActive ? "Detectando" : "Pausado"}
             </Text>
           </View>
         </View>
@@ -328,26 +335,32 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 
       {/* Controles actualizados */}
       <View style={styles.controls}>
-        <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+        <TouchableOpacity
+          style={styles.controlButton}
+          onPress={toggleCameraFacing}
+        >
           <Ionicons name="camera-reverse" size={24} color="#fff" />
           <Text style={styles.controlButtonText}>
-            {facing === 'back' ? 'Frontal' : 'Trasera'}
+            {facing === "back" ? "Frontal" : "Trasera"}
           </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.controlButton} onPress={forceDetection}>
           <Ionicons name="refresh" size={24} color="#00FF88" />
           <Text style={styles.controlButtonText}>Detectar</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.controlButton} onPress={toggleDetection}>
-          <Ionicons 
-            name={isDetectionActive ? "pause" : "play"} 
-            size={24} 
-            color={isDetectionActive ? "#FFB800" : "#00FF88"} 
+
+        <TouchableOpacity
+          style={styles.controlButton}
+          onPress={toggleDetection}
+        >
+          <Ionicons
+            name={isDetectionActive ? "pause" : "play"}
+            size={24}
+            color={isDetectionActive ? "#FFB800" : "#00FF88"}
           />
           <Text style={styles.controlButtonText}>
-            {isDetectionActive ? 'Pausar' : 'Iniciar'}
+            {isDetectionActive ? "Pausar" : "Iniciar"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -355,23 +368,23 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       {/* Panel de estado */}
       <View style={styles.statusPanel}>
         <View style={styles.statusItem}>
-          <Ionicons 
-            name={isDetectionActive ? "radio-button-on" : "radio-button-off"} 
-            size={16} 
-            color={isDetectionActive ? "#00FF88" : "#666"} 
+          <Ionicons
+            name={isDetectionActive ? "radio-button-on" : "radio-button-off"}
+            size={16}
+            color={isDetectionActive ? "#00FF88" : "#666"}
           />
           <Text style={styles.statusItemText}>
-            {isDetectionActive ? 'Detección activa' : 'Detección pausada'}
+            {isDetectionActive ? "Detección activa" : "Detección pausada"}
           </Text>
         </View>
-        
+
         <View style={styles.statusItem}>
           <Ionicons name="camera" size={16} color="#00FF88" />
           <Text style={styles.statusItemText}>
-            Cámara {facing === 'back' ? 'trasera' : 'frontal'}
+            Cámara {facing === "back" ? "trasera" : "frontal"}
           </Text>
         </View>
-        
+
         {detectedLetter && (
           <View style={styles.statusItem}>
             <Ionicons name="checkmark-circle" size={16} color="#00FF88" />
@@ -385,23 +398,52 @@ const AlphabetDetectionScreen = ({ navigation }) => {
       {/* Panel de alfabeto */}
       <View style={styles.alphabetPanel}>
         <Text style={styles.alphabetTitle}>
-          Alfabeto de Referencia {detectedLetter ? `- ${detectedLetter}` : ''}
+          Alfabeto de Referencia {detectedLetter ? `- ${detectedLetter}` : ""}
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.alphabetRow}>
-            {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'].map((letter) => (
+            {[
+              "A",
+              "B",
+              "C",
+              "D",
+              "E",
+              "F",
+              "G",
+              "H",
+              "I",
+              "J",
+              "K",
+              "L",
+              "M",
+              "N",
+              "O",
+              "P",
+              "Q",
+              "R",
+              "S",
+              "T",
+              "U",
+              "V",
+              "W",
+              "X",
+              "Y",
+              "Z",
+            ].map((letter) => (
               <TouchableOpacity
                 key={letter}
                 style={[
                   styles.letterBox,
-                  detectedLetter === letter && styles.letterBoxActive
+                  detectedLetter === letter && styles.letterBoxActive,
                 ]}
                 onPress={() => handleLetterPress(letter)}
               >
-                <Text style={[
-                  styles.letterText,
-                  detectedLetter === letter && styles.letterTextActive
-                ]}>
+                <Text
+                  style={[
+                    styles.letterText,
+                    detectedLetter === letter && styles.letterTextActive,
+                  ]}
+                >
                   {letter}
                 </Text>
               </TouchableOpacity>
@@ -409,7 +451,6 @@ const AlphabetDetectionScreen = ({ navigation }) => {
           </View>
         </ScrollView>
       </View>
-
     </View>
   );
 };
@@ -417,54 +458,54 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000000',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000000",
     padding: 20,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   headerSubtitle: {
-    color: '#CCCCCC',
+    color: "#CCCCCC",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 5,
   },
   cameraContainer: {
     flex: 1,
-    position: 'relative',
+    position: "relative",
   },
   camera: {
     flex: 1,
   },
   frameGuide: {
-    position: 'absolute',
-    top: '20%',
-    left: '10%',
-    right: '10%',
-    bottom: '35%',
+    position: "absolute",
+    top: "20%",
+    left: "10%",
+    right: "10%",
+    bottom: "35%",
   },
   corner: {
-    position: 'absolute',
+    position: "absolute",
     width: 30,
     height: 30,
-    borderColor: '#00FF88',
+    borderColor: "#00FF88",
     borderWidth: 3,
     borderTopWidth: 3,
     borderLeftWidth: 3,
@@ -496,188 +537,188 @@ const styles = StyleSheet.create({
     borderLeftWidth: 0,
   },
   guideTextContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -40,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: "center",
   },
   guideText: {
-    color: '#CCCCCC',
+    color: "#CCCCCC",
     fontSize: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
   statusContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 20,
     left: 20,
   },
   statusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
   statusText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
     marginLeft: 6,
   },
   controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
     paddingVertical: 20,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   controlButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
     paddingVertical: 8,
   },
   controlButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 11,
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   loadingText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     marginTop: 20,
   },
   errorText: {
-    color: '#FF4444',
+    color: "#FF4444",
     fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     marginTop: 20,
   },
   subtitleText: {
-    color: '#CCCCCC',
+    color: "#CCCCCC",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 10,
     lineHeight: 20,
   },
   button: {
-    backgroundColor: '#00FF88',
+    backgroundColor: "#00FF88",
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
     marginTop: 30,
   },
   buttonText: {
-    color: '#000000',
+    color: "#000000",
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
-  
+
   buttonContainer: {
     marginTop: 30,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
-  
+
   buttonSecondary: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: '#00FF88',
+    borderColor: "#00FF88",
     marginTop: 15,
   },
-  
+
   buttonTextSecondary: {
-    color: '#00FF88',
+    color: "#00FF88",
   },
-  
+
   errorDetailText: {
-    color: '#FFB800',
+    color: "#FFB800",
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 15,
     marginHorizontal: 20,
     lineHeight: 18,
   },
   statusPanel: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 2,
   },
   statusItemText: {
-    color: '#CCCCCC',
+    color: "#CCCCCC",
     fontSize: 12,
     marginLeft: 8,
   },
   alphabetPanel: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: "#1a1a1a",
     padding: 15,
     borderTopWidth: 1,
-    borderTopColor: '#333',
+    borderTopColor: "#333",
   },
   alphabetTitle: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 10,
   },
   alphabetRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 5,
   },
   letterBox: {
     width: 35,
     height: 35,
-    backgroundColor: '#333',
+    backgroundColor: "#333",
     margin: 2,
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   letterBoxActive: {
-    backgroundColor: '#00FF88',
+    backgroundColor: "#00FF88",
     transform: [{ scale: 1.1 }],
   },
   letterText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   letterTextActive: {
-    color: '#000',
+    color: "#000",
   },
   backButton: {
-  width: 40,
-  height: 40,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-headerContent: {
-  flex: 1,
-  alignItems: 'center',
-},
-headerSpacer: {
-  width: 40,
-},
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerSpacer: {
+    width: 40,
+  },
 });
 
 export default AlphabetDetectionScreen;

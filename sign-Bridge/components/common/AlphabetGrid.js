@@ -1,50 +1,57 @@
 // components/common/AlphabetGrid.js
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 
-const AlphabetGrid = ({ detectedLetter, onLetterPress }) => {
+// Opcional: permitir configurar columnas
+const DEFAULT_COLUMNS = 6;
+
+const AlphabetGrid = ({ detectedLetter, onLetterPress, columns = DEFAULT_COLUMNS, title = 'Alfabeto de Referencia', style }) => {
   const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Alfabeto de Referencia</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollView}>
-        <View style={styles.row}>
+  <View style={[styles.container, style]}>
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      {/* Contenedor cuadrado */}
+      <View style={styles.squareWrapper}>
+        <View style={styles.grid}>
           {alphabet.map((letter) => (
-            <TouchableOpacity
-              key={letter}
-              style={[
-                styles.letterBox,
-                detectedLetter === letter && styles.letterBoxActive
-              ]}
-              onPress={() => onLetterPress && onLetterPress(letter)}
-            >
-              <Text style={[
-                styles.letterText,
-                detectedLetter === letter && styles.letterTextActive
-              ]}>
-                {letter}
-              </Text>
-            </TouchableOpacity>
+            <View key={letter} style={[styles.letterBox, { width: `${100 / columns}%` }]}>
+              <TouchableOpacity
+                style={[
+                  styles.letterInner,
+                  detectedLetter === letter && styles.letterInnerActive,
+                ]}
+                onPress={() => onLetterPress && onLetterPress(letter)}
+                accessibilityRole="button"
+                accessibilityLabel={`Seleccionar letra ${letter}`}
+              >
+                <Text
+                  style={[
+                    styles.letterText,
+                    detectedLetter === letter && styles.letterTextActive,
+                  ]}
+                >
+                  {letter}
+                </Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1a1a1a',
-    padding: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
+    backgroundColor: '#000',
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   title: {
     color: '#fff',
@@ -53,28 +60,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  scrollView: {
-    flexGrow: 0,
+  squareWrapper: {
+    width: '100%',
+    aspectRatio: 1, // cuadrado
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 12,
+    padding: 8,
+    backgroundColor: '#111',
+    overflow: 'hidden',
   },
-  row: {
+  grid: {
+    flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 5,
+    flexWrap: 'wrap',
   },
   letterBox: {
-    width: 35,
-    height: 35,
+    aspectRatio: 1,
+    padding: 4,
+  },
+  letterInner: {
+    flex: 1,
     backgroundColor: '#333',
-    margin: 2,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  letterBoxActive: {
+  letterInnerActive: {
     backgroundColor: '#00FF88',
   },
   letterText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   letterTextActive: {

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 
 function NumberGrid({ detectedNumber, onNumberPress }) {
-  const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
   return (
     <View style={styles.container}>
