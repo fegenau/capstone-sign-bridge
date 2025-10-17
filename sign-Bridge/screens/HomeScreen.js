@@ -32,7 +32,7 @@ const HomeScreen = ({ navigation }) => {
       subtitle: "Aprende los números en señas",
       icon: "school",
       color: "#007AFF",
-      screen: "Numbers  ",
+      screen: "Number",
       available: true,
     },
     // {

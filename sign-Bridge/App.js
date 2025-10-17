@@ -10,7 +10,7 @@ import AlphabetDetectionScreen from './screens/AlphabetDetectionScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NumberDetectionScreen from './screens/NumberDetectionScreen';
 import DictionaryScreen from './screens/DicctionaryScreen';
-
+import NumberScreen from './screens/NumberScreen';
 const Stack = createStackNavigator();
 
 const navigationTheme = {
@@ -39,12 +39,12 @@ const App = () => {
 
   return (
     <SafeAreaProvider>
-      {/* <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer theme={navigationTheme}>
         <ExpoStatusBar 
           style="light" 
           backgroundColor="#000000"
           translucent={false}
-        /> */}
+        /> 
         
         <Stack.Navigator 
           initialRouteName="Splash"
@@ -99,17 +99,13 @@ const App = () => {
             }}
           />
           <Stack.Screen 
-            name="NumberDetection" 
-            component={NumberDetectionScreen}
+            name="Number" 
+            component={NumberScreen}
             options={{ 
-              title: 'Detección de Números',
-              headerStyle: {
-                backgroundColor: '#4A90E2',
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
+              title: '',
+              headerShown: true,
+              
+              
             }}
           />
 
