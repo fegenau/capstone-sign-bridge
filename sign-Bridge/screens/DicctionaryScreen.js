@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView } from 'react-native';
 import AlphabetGrid from '../components/common/AlphabetGrid';
 import { LETTER_IMAGES } from '../utils/constants/alphabetImages';
 
@@ -14,21 +14,26 @@ const DictionaryScreen = ({ navigation}) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Diccionario</Text>
-      <Text style={styles.subtitle}>Explora todas las letras de la A a la Z y visualiza sus señas correspondientes</Text>
-      <AlphabetGrid detectedLetter={selectedLetter} onLetterPress={handleLetterPress} />
-      {selectedLetter && LETTER_IMAGES[selectedLetter] && (
-        <View style={styles.previewContainer}>
-          <Text style={styles.previewTitle}>Letra seleccionada: {selectedLetter}</Text>
-          <Image
-            source={LETTER_IMAGES[selectedLetter]}
-            style={styles.previewImage}
-            resizeMode="contain"
-            accessible
-            accessibilityLabel={`Seña de la letra ${selectedLetter}`}
-          />
-        </View>
-      )}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.title}>Diccionario</Text>
+        <Text style={styles.subtitle}>Explora todas las letras de la A a la Z y visualiza sus señas correspondientes</Text>
+        <AlphabetGrid detectedLetter={selectedLetter} onLetterPress={handleLetterPress} />
+        {selectedLetter && LETTER_IMAGES[selectedLetter] && (
+          <View style={styles.previewContainer}>
+            <Text style={styles.previewTitle}>Letra seleccionada: {selectedLetter}</Text>
+            <Image
+              source={LETTER_IMAGES[selectedLetter]}
+              style={styles.previewImage}
+              resizeMode="contain"
+              accessible
+              accessibilityLabel={`Seña de la letra ${selectedLetter}`}
+            />
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -38,6 +43,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
     paddingTop: 14,
+  },
+  scrollContent: {
+    paddingBottom: 30,
   },
   title: {
     color: '#FFFFFF',

@@ -11,10 +11,11 @@ const ALPHABET = [
 const DETECTION_CONFIG = {
   minConfidence: 30,      // Confianza mínima para mostrar resultado
   maxConfidence: 95,      // Confianza máxima realista
-  // Ruta del modelo (.tflite) en assets (referencia futura; no se carga en esta versión)
+  // Ruta del modelo (.tflite) en assets
   modelPath: 'assets/Modelo/runs/detect/train/weights/best_saved_model/best_float32.tflite',
-  inputSize: 224,         // Tamaño de entrada esperado por el modelo (para futura integración)
-  detectionInterval: 1500 // Intervalo entre detecciones en ms (simulación)
+  inputSize: 640,         // Tamaño de entrada YOLOv8 (640x640)
+  detectionInterval: 1500, // Intervalo entre detecciones en ms (simulación)
+  threshold: 0.5          // Threshold para fast-tflite
 };
 
 /**
@@ -59,30 +60,36 @@ export class DetectionService {
   async loadModel() {
     if (this.isModelLoaded) return;
 
-    // Intentar cargar fast-tflite en iOS/Android; luego react-native-tflite; luego simulación
+    console.log('🔄 Cargando modelo de detección...');
+
+    // Intentar cargar fast-tflite primero
+    try {
+      const loadedFast = await fastTfliteService.loadModel();
+      if (loadedFast) {
+        this.model = { type: 'fast-tflite-simplified', path: 'simulation' };
+        this.isModelLoaded = true;
+        console.log('⚡ fast-tflite simplificado cargado con éxito');
+        console.log('📋 Modelo info:', fastTfliteService.getModelInfo());
+        
+        this.notifyCallbacks({ modelLoaded: true, isProcessing: false });
+        return;
+      }
+    } catch (e) {
+      console.warn('⚠️ fast-tflite no disponible:', e?.message || e);
+    }
+
+    // Intentar cargar tflite nativo en dispositivos móviles
     let loadedNative = false;
     if (Platform.OS === 'android' || Platform.OS === 'ios') {
       try {
         const modelPath = 'models/best_float32.tflite';
-        // 1) fast-tflite
-        try {
-          const loadedFast = await fastTfliteService.loadModel({ modelPath });
-          if (loadedFast) {
-            this.model = { type: 'fast-tflite', path: modelPath };
-            this.isModelLoaded = true;
-            console.log('⚡ fast-tflite cargado');
-            loadedNative = true;
-          }
-        } catch {}
-        // 2) react-native-tflite
-        if (!loadedNative) {
-          const loadedOld = await tfliteNativeService.loadModel({ modelPath });
-          if (loadedOld) {
-            this.model = { type: 'tflite-native', path: modelPath };
-            this.isModelLoaded = true;
-            console.log('🤖 TFLite nativo (legacy) cargado');
-            loadedNative = true;
-          }
+        // react-native-tflite
+        const loadedOld = await tfliteNativeService.loadModel({ modelPath });
+        if (loadedOld) {
+          this.model = { type: 'tflite-native', path: modelPath };
+          this.isModelLoaded = true;
+          console.log('🤖 TFLite nativo (legacy) cargado');
+          loadedNative = true;
         }
       } catch (e) {
         console.warn('No se pudo cargar TFLite nativo, se usará simulación. Detalle:', e?.message || e);
@@ -126,23 +133,67 @@ export class DetectionService {
   async predictLetter(imageData) {
     if (!this.isModelLoaded) throw new Error('Modelo no está cargado');
 
-    // fast-tflite
+    console.log('🔍 Ejecutando predicción con modelo:', this.model?.type);
+
+    // fast-tflite simplificado
+    if (this.model?.type === 'fast-tflite-simplified') {
+      try {
+        // Usar imageData si está disponible, sino usar URI de prueba
+        const uri = imageData?.uri || 'test://prediction-image.jpg';
+        
+        const res = await fastTfliteService.predictFromImageUri(uri, { 
+          threshold: DETECTION_CONFIG.threshold 
+        });
+        
+        if (!res) {
+          console.log('ℹ️ No se obtuvo resultado de predicción');
+          return null;
+        }
+        
+        const result = {
+          letter: res.label,
+          confidence: res.confidence,
+          timestamp: Date.now(),
+          source: 'fast-tflite-simplified',
+          isSimulation: res.source?.includes('simulation') || true,
+          bbox: res.bbox
+        };
+        
+        console.log('✅ Resultado predicción:', result);
+        this.notifyCallbacks({ isProcessing: false, ...result });
+        return result;
+      } catch (error) {
+        console.error('❌ Error en predicción fast-tflite-simplified:', error);
+        return null;
+      }
+    }
+
+    // fast-tflite original
     if (this.model?.type === 'fast-tflite') {
       if (!imageData?.uri) return null;
-      // Aún no implementado el pipeline de preprocesamiento/postprocesado
-      // Mantener retorno null para no romper UI hasta que se implemente
-      const res = await fastTfliteService.predictFromImageUri(imageData.uri, { threshold: 0.5 });
-      if (!res) return null;
-      const letter = String(res.label || '').toUpperCase();
-      const result = {
-        letter,
-        confidence: res.confidence,
-        timestamp: Date.now(),
-        source: 'fast-tflite',
-        isSimulation: false,
-      };
-      this.notifyCallbacks({ isProcessing: false, ...result });
-      return result;
+      
+      try {
+        const res = await fastTfliteService.predictFromImageUri(imageData.uri, { 
+          threshold: DETECTION_CONFIG.threshold 
+        });
+        
+        if (!res) return null;
+        
+        const result = {
+          letter: res.label,
+          confidence: res.confidence,
+          timestamp: Date.now(),
+          source: 'fast-tflite',
+          isSimulation: res.source?.includes('simulation') || false,
+          bbox: res.bbox
+        };
+        
+        this.notifyCallbacks({ isProcessing: false, ...result });
+        return result;
+      } catch (error) {
+        console.error('❌ Error en predicción fast-tflite:', error);
+        return null;
+      }
     }
 
     // TFLite nativo (react-native-tflite)

@@ -35,6 +35,15 @@ const HomeScreen = ({ navigation }) => {
       screen: "Number",
       available: true,
     },
+    {
+      id: "cameratest",
+      title: "🧪 Prueba de Cámara",
+      subtitle: "Diagnóstico de cámara y modelo",
+      icon: "bug",
+      color: "#FF4444",
+      screen: "CameraTest",
+      available: true,
+    },
     // {
     //   id: "practice",
     //   title: "Modo Práctica",

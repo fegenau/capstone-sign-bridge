@@ -11,6 +11,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import NumberDetectionScreen from './screens/NumberDetectionScreen';
 import DictionaryScreen from './screens/DicctionaryScreen';
 import NumberScreen from './screens/NumberScreen';
+import CameraTest from './test/CameraTest';  // Prueba temporal
 const Stack = createStackNavigator();
 
 const navigationTheme = {
@@ -137,6 +138,26 @@ const App = () => {
               },
             }}
           />
+          
+          {/* Pantalla de Prueba - Temporal */}
+          <Stack.Screen 
+            name="CameraTest" 
+            component={CameraTest}
+            options={{
+              title: 'Prueba de Cámara',
+              headerShown: true,
+              headerStyle: {
+                backgroundColor: '#1A1A1A',
+                shadowOpacity: 0,
+                elevation: 0,
+              },
+              headerTintColor: '#FFFFFF',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
+            }}
+          />
+          
             {/* Pantallas futuras - Placeholders */}
             <Stack.Screen 
               name="Practice" 
