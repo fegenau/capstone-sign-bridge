@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, StyleSheet, Button, ActivityIndicator, Platform } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { TensorflowLite } from 'react-native-tensorflow';
 import { Asset } from 'expo-asset';
+import { SignDetectionService } from './services/SignDetectionService';
 
 export default function DetectLettersScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -14,103 +14,76 @@ export default function DetectLettersScreen() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const captureTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Cargar modelo al inicializar
   useEffect(() => {
     const loadModel = async () => {
       try {
-        // Validar entorno compatible
         if (Platform.OS === 'web') {
-          setModelError('TensorFlow Lite no es compatible en Web. Usa Android o iOS con Dev Client.');
+          setModelError('TensorFlow Lite no es compatible en Web.');
           return;
         }
 
-        if (!TensorflowLite || typeof (TensorflowLite as any).loadModel !== 'function') {
-          setModelError('Módulo nativo "react-native-tensorflow" no disponible. Usa un Development Client (expo run:* o EAS) en lugar de Expo Go.');
-          return;
-        }
-
-        // Usar expo-asset para resolver la URI del archivo en nativo (Android/iOS)
-        const modelAsset = Asset.fromModule(require('../assets/model/model.tflite'));
-        const labelsAsset = Asset.fromModule(require('../assets/model/labels.txt'));
+        const modelAsset = Asset.fromModule(require('./assets/model/model.tflite'));
+        const labelsAsset = Asset.fromModule(require('./assets/model/labels.txt'));
         await modelAsset.downloadAsync();
         await labelsAsset.downloadAsync();
-        await TensorflowLite.loadModel({
-          model: modelAsset.localUri || modelAsset.uri,
-          labels: labelsAsset.localUri || labelsAsset.uri,
-        });
-        setIsModelReady(true);
-        console.log('Modelo cargado correctamente ✅');
+        
+        const success = await SignDetectionService.initializeModel(
+          modelAsset.localUri || modelAsset.uri,
+          labelsAsset.localUri || labelsAsset.uri
+        );
+        
+        if (success) {
+          setIsModelReady(true);
+          console.log('✅ Modelo cargado correctamente');
+        } else {
+          setModelError('Error al inicializar el servicio de detección');
+        }
       } catch (e) {
-        console.error('Error al cargar modelo', e);
-        setModelError('No se pudo cargar el modelo. Revisa logs y rutas de assets.');
+        console.error('❌ Error al cargar modelo:', e);
+        setModelError('No se pudo cargar el modelo.');
       }
     };
     loadModel();
   }, []);
 
+  // Función para capturar y analizar imagen
   const captureAndAnalyze = async () => {
-  if (!isModelReady || !!modelError || !isCameraReady || !cameraRef.current) return;
+    if (!isModelReady || !!modelError || !isCameraReady || !cameraRef.current) return;
     if (processingRef.current) return;
     processingRef.current = true;
+    
     try {
-  // Solicitar base64 para fallback de inferencia
-  const photo: any = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: true } as any);
+      const photo: any = await cameraRef.current.takePictureAsync({ 
+        quality: 0.5, 
+        base64: false 
+      } as any);
+      
       const uri = photo?.uri ?? photo?.localUri ?? photo?.assets?.[0]?.uri;
       if (!uri) return;
 
-      let result: any = null;
-      try {
-        // Preferimos invocar por ruta si la API lo soporta
-        // @ts-ignore API específica de la lib
-        result = await TensorflowLite.runModelOnImage({
-          path: uri,
-          imageMean: 127.5,
-          imageStd: 127.5,
-          numResults: 1,
-          threshold: 0.4,
-        });
-      } catch (e) {
-        console.warn('Fallo runModelOnImage, intenta runModelOnFrame si está soportado', e);
-        // Si la API no soporta por ruta, intentamos frame/base64 si existe
-        const base64 = photo?.base64;
-        if (base64) {
-          // Muchas libs aceptan bytes como Buffer/Array; pasamos base64 y dejamos que el nativo lo maneje si soporta
-          // @ts-ignore
-          result = await TensorflowLite.runModelOnFrame({
-            // Algunas implementaciones aceptan { base64 } o { bytes }
-            // Probar ambas claves; la lib ignorará desconocidas
-            base64,
-            bytes: base64,
-            width: photo?.width,
-            height: photo?.height,
-            imageMean: 127.5,
-            imageStd: 127.5,
-            numResults: 1,
-            threshold: 0.4,
-          });
-        } else {
-          // Como último recurso, mantener predicción sin cambios
-          result = null;
-        }
+      const result = await SignDetectionService.predict(uri);
+      
+      if (result) {
+        setPrediction(`${result.label} (${(result.confidence * 100).toFixed(1)}%)`);
+      } else {
+        setPrediction('Sin detección');
       }
-
-      const first = Array.isArray(result) ? result[0] : result?.[0];
-      const label = first?.label ?? first?.detectedClass ?? 'Sin detección';
-      setPrediction(String(label));
     } catch (err) {
-      console.error('Error al capturar/analizar:', err);
+      console.error('❌ Error al capturar/analizar:', err);
+      setPrediction('Error en detección');
     } finally {
       processingRef.current = false;
     }
   };
 
-  // Iniciar bucle de captura periódico cuando todo esté listo
+  // Bucle de captura automático
   useEffect(() => {
     if (permission?.granted && isModelReady && isCameraReady && cameraRef.current) {
-      // Evitar múltiples timers
       if (captureTimerRef.current) clearInterval(captureTimerRef.current as any);
       captureTimerRef.current = setInterval(() => {
         captureAndAnalyze();
-      }, 800);
+      }, 1500); // Cada 1.5 segundos para no sobrecargar
       return () => {
         if (captureTimerRef.current) clearInterval(captureTimerRef.current as any);
         captureTimerRef.current = null;
@@ -118,23 +91,25 @@ export default function DetectLettersScreen() {
     }
   }, [permission?.granted, isModelReady, isCameraReady]);
 
-  if (!permission) return <Text style={styles.centerText}>Cargando permisos...</Text>;
-  if (!permission.granted)
+  if (!permission) {
+    return <Text style={styles.centerText}>Cargando permisos...</Text>;
+  }
+
+  if (!permission.granted) {
     return (
       <View style={[styles.container, styles.center]}>
         <Text style={styles.centerText}>Se necesita permiso de cámara</Text>
         <Button title="Conceder permiso" onPress={requestPermission} />
       </View>
     );
+  }
 
   return (
     <View style={styles.container}>
       <CameraView
         style={styles.camera}
         facing="front"
-        ref={(ref) => {
-          cameraRef.current = ref;
-        }}
+        ref={cameraRef}
         onCameraReady={() => setIsCameraReady(true)}
       />
       <View style={styles.overlay}>
@@ -148,7 +123,7 @@ export default function DetectLettersScreen() {
             <Text style={styles.text}>{modelError}</Text>
           </View>
         ) : (
-          <Text style={styles.text}>Predicción: {prediction || '—'}</Text>
+          <Text style={styles.text}>Predicción: {prediction || 'Listo para detectar'}</Text>
         )}
       </View>
     </View>
