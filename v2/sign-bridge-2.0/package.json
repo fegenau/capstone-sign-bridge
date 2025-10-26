@@ -10,11 +10,22 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-converter": "^4.22.0",
     "expo": "~54.0.20",
+    "expo-asset": "^12.0.9",
+    "expo-camera": "^17.0.8",
+    "expo-gl": "^16.0.7",
+    "expo-gl-cpp": "^11.4.0",
+    "expo-image-manipulator": "^14.0.7",
+    "expo-image-picker": "^17.0.8",
+    "expo-media-library": "^18.2.0",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-fs": "^2.20.0",
+    "react-native-tflite": "^0.0.2",
     "react-native-web": "^0.21.0"
   },
   "devDependencies": {
