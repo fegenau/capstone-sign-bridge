@@ -30,17 +30,47 @@ const NumberDetectionScreen = ({ navigation }) => {
       setIsLoading(true);
       const getWebcam = async () => {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: 'user'
+            }
+          });
+          
+          console.log('🌐 Stream de cámara obtenido (Números):', stream.active);
           setWebStream(stream);
           setWebError(null);
-          setIsLoading(false);
-          setIsDetectionActive(true);
-          if (videoRef.current) {
+          
+          // Esperar a que el videoRef esté disponible
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          if (videoRef.current && stream.active) {
             videoRef.current.srcObject = stream;
+            
+            // Forzar reproducción del video
+            videoRef.current.onloadedmetadata = () => {
+              console.log('✅ Video metadata cargado (Números)');
+              videoRef.current.play()
+                .then(() => {
+                  console.log('✅ Video reproduciendo correctamente (Números)');
+                  setIsLoading(false);
+                  setIsDetectionActive(true);
+                  startDetection();
+                })
+                .catch(err => {
+                  console.error('❌ Error al reproducir video:', err);
+                  setWebError("Error al iniciar video de cámara");
+                  setIsLoading(false);
+                });
+            };
+          } else {
+            console.error('❌ videoRef no disponible o stream inactivo');
+            setIsLoading(false);
           }
-          startDetection();
         } catch (err) {
-          setWebError('No se pudo acceder a la cámara.');
+          console.error('❌ Error al acceder a la cámara:', err);
+          setWebError('No se pudo acceder a la cámara. Verifica los permisos.');
           setIsLoading(false);
         }
       };
@@ -194,8 +224,18 @@ const NumberDetectionScreen = ({ navigation }) => {
               autoPlay
               playsInline
               muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222' }}
+              webkit-playsinline="true"
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover', 
+                background: '#000',
+                display: 'block'
+              }}
               id="webcam-video-numbers"
+              onLoadedData={() => console.log('📹 Video data loaded (Números)')}
+              onPlay={() => console.log('▶️ Video playing (Números)')}
+              onError={(e) => console.error('❌ Video error (Números):', e)}
             />
             {/* Overlay de detección */}
             {isProcessing && detectedNumber !== null && confidence > 60 ? (
