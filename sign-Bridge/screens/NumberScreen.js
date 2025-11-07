@@ -8,8 +8,6 @@ const NumberScreen = ({ navigation }) => {
 
   const handleNumberPress = (number) => {
     setSelectedNumber(number);
-    // Si más adelante hay una pantalla de detalle, aquí se puede navegar
-    // navigation.navigate('NumberDetail', { number });
   };
 
   return (

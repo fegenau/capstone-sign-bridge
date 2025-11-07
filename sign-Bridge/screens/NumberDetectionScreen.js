@@ -4,63 +4,47 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   Alert,
   ScrollView,
 } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
 const NumberDetectionScreen = ({ navigation }) => {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState('back');
   const [isLoading, setIsLoading] = useState(true);
   const [detectedNumber, setDetectedNumber] = useState(null);
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
-  const cameraRef = useRef(null);
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      setIsLoading(true);
-      const getWebcam = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          setWebStream(stream);
-          setWebError(null);
-          setIsLoading(false);
-          setIsDetectionActive(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-          startDetection();
-        } catch (err) {
-          setWebError('No se pudo acceder a la cámara.');
-          setIsLoading(false);
-        }
-      };
-      getWebcam();
-      return () => {
-        stopDetection();
-        if (webStream) {
-          webStream.getTracks().forEach(track => track.stop());
-        }
-      };
-    } else {
-      const timer = setTimeout(() => {
+    setIsLoading(true);
+    const getWebcam = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setWebStream(stream);
+        setWebError(null);
         setIsLoading(false);
+        setIsDetectionActive(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
         startDetection();
-      }, 1000);
-      return () => {
-        clearTimeout(timer);
-        stopDetection();
-      };
-    }
+      } catch (err) {
+        setWebError('No se pudo acceder a la cámara.');
+        setIsLoading(false);
+      }
+    };
+    getWebcam();
+    return () => {
+      stopDetection();
+      if (webStream) {
+        webStream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   const startDetection = async () => {
@@ -128,42 +112,15 @@ const NumberDetectionScreen = ({ navigation }) => {
     );
   }
 
-  if (Platform.OS === 'web') {
-    if (webError) {
-      return (
-        <View style={styles.centerContainer}>
-          <StatusBar style="light" />
-          <Ionicons name="camera-off" size={80} color="#FF4444" />
-          <Text style={styles.errorText}>Sin acceso a la cámara</Text>
-          <Text style={styles.subtitleText}>{webError}</Text>
-        </View>
-      );
-    }
-  } else {
-    if (!permission) {
-      return (
-        <View style={styles.centerContainer}>
-          <StatusBar style="light" />
-          <Ionicons name="camera" size={80} color="#FFB800" />
-          <Text style={styles.loadingText}>Verificando permisos...</Text>
-        </View>
-      );
-    }
-    if (!permission.granted) {
-      return (
-        <View style={styles.centerContainer}>
-          <StatusBar style="light" />
-          <Ionicons name="camera-off" size={80} color="#FF4444" />
-          <Text style={styles.errorText}>Sin acceso a la cámara</Text>
-          <Text style={styles.subtitleText}>
-            SignBridge necesita acceso a la cámara para detectar números
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Solicitar permisos</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+  if (webError) {
+    return (
+      <View style={styles.centerContainer}>
+        <StatusBar style="light" />
+        <Ionicons name="camera-off" size={80} color="#FF4444" />
+        <Text style={styles.errorText}>Sin acceso a la cámara</Text>
+        <Text style={styles.subtitleText}>{webError}</Text>
+      </View>
+    );
   }
 
   return (
@@ -187,85 +144,43 @@ const NumberDetectionScreen = ({ navigation }) => {
 
       {/* Vista de Cámara multiplataforma */}
       <View style={styles.cameraContainer}>
-        {Platform.OS === 'web' ? (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222' }}
-              id="webcam-video-numbers"
-            />
-            {/* Overlay de detección */}
-            {isProcessing && detectedNumber !== null && confidence > 60 ? (
-              <View style={styles.detectionOverlay}>
-                <View style={styles.detectionBox}>
-                  <Text style={styles.detectedText}>{detectedNumber}</Text>
-                  <View style={styles.confidenceContainer}>
-                    <View 
-                      style={[
-                        styles.confidenceBar, 
-                        { 
-                          width: `${confidence}%`,
-                          backgroundColor: 
-                            confidence > 80 ? '#00FF88' :
-                            confidence > 60 ? '#FFD700' : '#FF6B6B'
-                        }
-                      ]} 
-                    />
-                  </View>
-                  <Text style={styles.confidenceText}>{confidence}% confianza</Text>
-                </View>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222' }}
+          id="webcam-video-numbers"
+        />
+        {/* Overlay de detección */}
+        {isProcessing && detectedNumber !== null && confidence > 60 ? (
+          <View style={styles.detectionOverlay}>
+            <View style={styles.detectionBox}>
+              <Text style={styles.detectedText}>{detectedNumber}</Text>
+              <View style={styles.confidenceContainer}>
+                <View 
+                  style={[
+                    styles.confidenceBar, 
+                    { 
+                      width: `${confidence}%`,
+                      backgroundColor: 
+                        confidence > 80 ? '#00FF88' :
+                        confidence > 60 ? '#FFD700' : '#FF6B6B'
+                    }
+                  ]} 
+                />
               </View>
-            ) : (
-              <View style={styles.detectionOverlay}>
-                <View style={styles.waitingBox}>
-                  <Text style={styles.waitingText}>
-                    {isProcessing ? 'Muestra un número' : 'Pausado'}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </>
+              <Text style={styles.confidenceText}>{confidence}% confianza</Text>
+            </View>
+          </View>
         ) : (
-          <>
-            <CameraView
-              style={styles.camera}
-              facing={facing}
-              ref={cameraRef}
-            />
-            {/* Overlay de detección */}
-            {isProcessing && detectedNumber !== null && confidence > 60 ? (
-              <View style={styles.detectionOverlay}>
-                <View style={styles.detectionBox}>
-                  <Text style={styles.detectedText}>{detectedNumber}</Text>
-                  <View style={styles.confidenceContainer}>
-                    <View 
-                      style={[
-                        styles.confidenceBar, 
-                        { 
-                          width: `${confidence}%`,
-                          backgroundColor: 
-                            confidence > 80 ? '#00FF88' :
-                            confidence > 60 ? '#FFD700' : '#FF6B6B'
-                        }
-                      ]} 
-                    />
-                  </View>
-                  <Text style={styles.confidenceText}>{confidence}% confianza</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.detectionOverlay}>
-                <View style={styles.waitingBox}>
-                  <Text style={styles.waitingText}>
-                    {isProcessing ? 'Muestra un número' : 'Pausado'}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </>
+          <View style={styles.detectionOverlay}>
+            <View style={styles.waitingBox}>
+              <Text style={styles.waitingText}>
+                {isProcessing ? 'Muestra un número' : 'Pausado'}
+              </Text>
+            </View>
+          </View>
         )}
 
         {/* Frame guía */}
@@ -394,7 +309,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
