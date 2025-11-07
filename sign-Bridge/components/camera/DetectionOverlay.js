@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   
-  // Letra detectada
+
   detectedLetter: {
     color: '#00FF88',
     fontSize: 80,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     lineHeight: 90,
   },
   
-  // Confianza
+
   confidenceContainer: {
     alignItems: 'center',
     width: '100%',
@@ -176,10 +176,10 @@ const styles = StyleSheet.create({
   confidenceFill: {
     height: '100%',
     borderRadius: 4,
-    minWidth: 2, // Mínimo visible
+    minWidth: 2,
   },
   
-  // Estado sin detección
+
   noDetectionContainer: {
     alignItems: 'center',
     paddingVertical: 10,
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   
-  // Estado de procesamiento
+
   processingContainer: {
     alignItems: 'center',
     paddingVertical: 20,
