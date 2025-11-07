@@ -35,24 +35,6 @@ const HomeScreen = ({ navigation }) => {
       screen: "Number",
       available: true,
     },
-    // {
-    //   id: "practice",
-    //   title: "Modo Práctica",
-    //   subtitle: "Aprende paso a paso",
-    //   icon: "school",
-    //   color: "#007AFF",
-    //   screen: "Practice",
-    //   available: false,
-    // },
-    // {
-    //   id: 'progress',
-    //   title: 'Mi Progreso',
-    //   subtitle: 'Ve tus estadísticas',
-    //   icon: 'stats-chart',
-    //   color: '#FF6B6B',
-    //   screen: 'Progress',
-    //   available: false,
-    // },
     {
       id: "settings",
       title: "Configuración",
@@ -136,8 +118,13 @@ const HomeScreen = ({ navigation }) => {
       <StatusBar style="light" backgroundColor="#000000" />
 
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
+        scrollIndicatorInsets={{ right: 2 }}
+        bounces={true}
+        alwaysBounceVertical={true}
+        persistentScrollbar={true}
       >
         <View style={styles.header}>
           <Image
@@ -184,25 +171,6 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* <TouchableOpacity
-          style={styles.quickStartCardSecondary}
-          onPress={() => navigation.navigate("NumberDetection")}
-          activeOpacity={0.8}
-        >
-          <View style={styles.quickStartContent}>
-            <View style={styles.quickStartIconSecondary}>
-              <Ionicons name="keypad-outline" size={30} color="#4A90E2" />
-            </View>
-            <View style={styles.quickStartText}>
-              <Text style={styles.quickStartTitleSecondary}>Números</Text>
-              <Text style={styles.quickStartSubtitleSecondary}>
-                Practica números del 0 al 9
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#666" />
-          </View>
-        </TouchableOpacity> */}
-
         {/* Menu Options */}
         <View style={styles.menuSection}>
           {menuOptions.map(renderMenuItem)}
@@ -225,8 +193,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
 
+  scrollView: {
+    flex: 1,
+  },
+
   scrollContainer: {
-    paddingBottom: 30,
+    paddingBottom: 50,
+    minHeight: '120%', // Forzar que el contenido sea más alto que la pantalla
   },
 
   header: {
@@ -431,6 +404,28 @@ const styles = StyleSheet.create({
     color: "#FFB800",
     fontSize: 10,
     fontWeight: "600",
+  },
+
+  extraContent: {
+    padding: 20,
+    marginBottom: 20,
+  },
+
+  extraTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+
+  featureItem: {
+    marginBottom: 10,
+  },
+
+  featureText: {
+    color: "#CCCCCC",
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   footer: {

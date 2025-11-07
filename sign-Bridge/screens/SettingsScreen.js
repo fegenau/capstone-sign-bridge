@@ -182,7 +182,12 @@ const SettingsScreen = ({ navigation }) => {
 
       <ScrollView 
         style={styles.content}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={true}
+        scrollIndicatorInsets={{ right: 2 }}
+        bounces={true}
+        alwaysBounceVertical={true}
+        persistentScrollbar={true}
       >
         {settingsSections.map(renderSection)}
         
@@ -255,7 +260,12 @@ const styles = StyleSheet.create({
   
   content: {
     flex: 1,
+  },
+  
+  scrollContainer: {
     padding: 20,
+    paddingBottom: 50,
+    minHeight: '120%',
   },
   
   section: {
