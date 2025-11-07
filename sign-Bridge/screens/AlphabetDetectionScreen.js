@@ -4,25 +4,20 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   Alert,
   ScrollView,
 } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import DetectionOverlay from "../components/camera/DetectionOverlay";
 import { detectionService } from "../utils/services/detectionService";
 
 const AlphabetDetectionScreen = ({ navigation }) => {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState("back");
   const [isLoading, setIsLoading] = useState(true);
   const [detectedLetter, setDetectedLetter] = useState(null);
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
-  const cameraRef = useRef(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   // Web-specific
@@ -33,21 +28,21 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 
   useEffect(() => {
     screenMountedRef.current = true;
-    if (Platform.OS === "web") {
-      setIsLoading(true);
-      const getWebcam = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-          });
-          setWebStream(stream);
-          setWebError(null);
-          setIsLoading(false);
-          setIsDetectionActive(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-          startDetection();
+    // Solo web - eliminar verificación Platform.OS
+    setIsLoading(true);
+    const getWebcam = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        setWebStream(stream);
+        setWebError(null);
+        setIsLoading(false);
+        setIsDetectionActive(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        startDetection();
         } catch (err) {
           setWebError("No se pudo acceder a la cámara.");
           setIsLoading(false);
@@ -61,18 +56,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
         }
         screenMountedRef.current = false;
       };
-    } else {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-        startDetection();
-      }, 1000);
-      return () => {
-        clearTimeout(timer);
-        detectionService.stopDetection();
-        screenMountedRef.current = false;
-      };
-    }
-  }, []);
+    }, []);
   useEffect(() => {
     const handleDetectionResult = (result) => {
       if (result.isProcessing !== undefined) {
@@ -116,57 +100,13 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 
   const forceDetection = async () => {
     try {
-      if (Platform.OS === "web") {
-        // En web mantenemos la simulación/flujo actual
-        await detectionService.forceDetection();
-        return;
-      }
-
-      // En nativo: tomar una foto rápida y pasar el URI al servicio
-      if (!cameraRef.current || !isCameraReady) {
-        console.warn("Cámara no lista aún para capturar");
-        await detectionService.forceDetection();
-        return;
-      }
-
-      if (isCapturing) {
-        return; // evitar capturas concurrentes
-      }
-      setIsCapturing(true);
-      let attempts = 0;
-      let done = false;
-      let lastError = null;
-      while (!done && attempts < 2) {
-        try {
-          // pequeña espera por si acaba de montarse
-          await new Promise((r) => setTimeout(r, attempts === 0 ? 50 : 200));
-          const photo = await cameraRef.current.takePictureAsync({
-            quality: 0.5,
-            skipProcessing: true,
-            base64: false,
-            exif: false,
-          });
-          if (!screenMountedRef.current) return;
-          const uri = photo?.uri || photo?.localUri;
-          await detectionService.forceDetection({ uri });
-          done = true;
-        } catch (err) {
-          lastError = err;
-          const msg = String(err?.message || err);
-          if (/unmounted/i.test(msg)) {
-            // reintentar una vez tras breve espera
-            attempts += 1;
-            continue;
-          }
-          throw err;
-        }
-      }
-      if (!done && lastError) throw lastError;
+      // Solo web - simulación directa
+      await detectionService.forceDetection();
+      return;
+      return; 
     } catch (error) {
       console.error("Error en detección manual:", error);
       Alert.alert("Error", "Error en detección manual");
-    } finally {
-      setIsCapturing(false);
     }
   };
 
@@ -202,42 +142,16 @@ const AlphabetDetectionScreen = ({ navigation }) => {
     );
   }
 
-  if (Platform.OS === "web") {
-    if (webError) {
-      return (
-        <View style={styles.centerContainer}>
-          <StatusBar style="light" />
-          <Ionicons name="close-circle-outline" size={80} color="#FF4444" />
-          <Text style={styles.errorText}>Sin acceso a la cámara</Text>
-          <Text style={styles.subtitleText}>{webError}</Text>
-        </View>
-      );
-    }
-  } else {
-    if (!permission) {
-      return (
-        <View style={styles.centerContainer}>
-          <StatusBar style="light" />
-          <Ionicons name="camera" size={80} color="#FFB800" />
-          <Text style={styles.loadingText}>Verificando permisos...</Text>
-        </View>
-      );
-    }
-    if (!permission.granted) {
-      return (
-        <View style={styles.centerContainer}>
-          <StatusBar style="light" />
-          <Ionicons name="close-circle-outline" size={80} color="#FF4444" />
-          <Text style={styles.errorText}>Sin acceso a la cámara</Text>
-          <Text style={styles.subtitleText}>
-            SignBridge necesita acceso a la cámara para detectar letras
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Solicitar permisos</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+  // Solo web - verificar errores de cámara
+  if (webError) {
+    return (
+      <View style={styles.centerContainer}>
+        <StatusBar style="light" />
+        <Ionicons name="close-circle-outline" size={80} color="#FF4444" />
+        <Text style={styles.errorText}>Sin acceso a la cámara</Text>
+        <Text style={styles.subtitleText}>{webError}</Text>
+      </View>
+    );
   }
 
   return (
@@ -259,53 +173,28 @@ const AlphabetDetectionScreen = ({ navigation }) => {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Vista de Cámara multiplataforma */}
+      {/* Vista de Cámara Web */}
       <View style={styles.cameraContainer}>
-        {Platform.OS === "web" ? (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                background: "#222",
-              }}
-              id="webcam-video-alphabet"
-            />
-            {/* Overlay de detección */}
-            <DetectionOverlay
-              detectedLetter={detectedLetter}
-              confidence={confidence}
-              isProcessing={isProcessing}
-              isVisible={true}
-            />
-          </>
-        ) : (
-          <>
-            <CameraView
-              style={styles.camera}
-              facing={facing}
-              active={true}
-              onCameraReady={() => setIsCameraReady(true)}
-              onMountError={(e) => {
-                console.error("Error montando cámara:", e?.nativeEvent || e);
-                setIsCameraReady(false);
-              }}
-              ref={cameraRef}
-            />
-            {/* Overlay de detección */}
-            <DetectionOverlay
-              detectedLetter={detectedLetter}
-              confidence={confidence}
-              isProcessing={isProcessing}
-              isVisible={true}
-            />
-          </>
-        )}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            background: "#222",
+          }}
+          id="webcam-video-alphabet"
+        />
+        {/* Overlay de detección */}
+        <DetectionOverlay
+          detectedLetter={detectedLetter}
+          confidence={confidence}
+          isProcessing={isProcessing}
+          isVisible={true}
+        />
         {/* Frame guía */}
         <View style={styles.frameGuide}>
           <View style={styles.corner} />
@@ -468,7 +357,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     backgroundColor: "rgba(0, 0, 0, 0.9)",
