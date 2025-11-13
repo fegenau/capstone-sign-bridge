@@ -20,6 +20,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const [isDetectionActive, setIsDetectionActive] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [facing, setFacing] = useState("front");  // ✅ FIXED: Added facing state
   // Web-specific
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
