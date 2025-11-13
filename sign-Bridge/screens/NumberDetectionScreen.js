@@ -16,6 +16,7 @@ const NumberDetectionScreen = ({ navigation }) => {
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
+  const [facing, setFacing] = useState('front');  // ✅ FIXED: Added facing state
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
   const videoRef = useRef(null);
