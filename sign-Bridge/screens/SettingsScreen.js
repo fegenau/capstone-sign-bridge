@@ -1,10 +1,10 @@
 // screens/SettingsScreen.js
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   ScrollView,
   SafeAreaView,
   Switch,
@@ -12,8 +12,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useTheme } from '../context/ThemeContext';
 
 const SettingsScreen = ({ navigation }) => {
+  const { colors } = useTheme();
+
   // Estados para configuraciones
   const [notifications, setNotifications] = useState(true);
   const [hapticFeedback, setHapticFeedback] = useState(true);
@@ -131,24 +134,24 @@ const SettingsScreen = ({ navigation }) => {
     >
       <View style={styles.settingContent}>
         <View style={styles.settingIcon}>
-          <Ionicons name={item.icon} size={24} color="#00FF88" />
+          <Ionicons name={item.icon} size={24} color={colors.neonGreen} />
         </View>
-        
+
         <View style={styles.settingText}>
           <Text style={styles.settingTitle}>{item.title}</Text>
           <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
         </View>
-        
+
         <View style={styles.settingControl}>
           {item.type === 'switch' ? (
             <Switch
               value={item.value}
               onValueChange={item.onValueChange}
-              trackColor={{ false: '#767577', true: '#00FF88' }}
-              thumbColor={item.value ? '#FFFFFF' : '#f4f3f4'}
+              trackColor={{ false: colors.textTertiary, true: colors.neonGreen }}
+              thumbColor={item.value ? colors.textPrimary : '#f4f3f4'}
             />
           ) : (
-            <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           )}
         </View>
       </View>
@@ -164,23 +167,148 @@ const SettingsScreen = ({ navigation }) => {
     </View>
   );
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.darkBackground,
+    },
+
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+
+    backButton: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    headerTitle: {
+      color: colors.textPrimary,
+      fontSize: 20,
+      fontWeight: 'bold',
+    },
+
+    headerSpacer: {
+      width: 40,
+    },
+
+    content: {
+      flex: 1,
+    },
+
+    scrollContainer: {
+      padding: 20,
+      paddingBottom: 50,
+      minHeight: '120%',
+    },
+
+    section: {
+      marginBottom: 30,
+    },
+
+    sectionTitle: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 15,
+    },
+
+    sectionContent: {
+      backgroundColor: colors.darkSurface,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+
+    settingItem: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+
+    settingContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+    },
+
+    settingIcon: {
+      width: 40,
+      height: 40,
+      backgroundColor: 'rgba(0, 255, 136, 0.1)',
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 15,
+    },
+
+    settingText: {
+      flex: 1,
+    },
+
+    settingTitle: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 2,
+    },
+
+    settingSubtitle: {
+      color: colors.textSecondary,
+      fontSize: 14,
+    },
+
+    settingControl: {
+      marginLeft: 10,
+    },
+
+    dangerSection: {
+      marginTop: 20,
+      marginBottom: 40,
+    },
+
+    dangerButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255, 68, 68, 0.1)',
+      borderWidth: 1,
+      borderColor: colors.error,
+      borderRadius: 12,
+      padding: 16,
+    },
+
+    dangerButtonText: {
+      color: colors.error,
+      fontSize: 16,
+      fontWeight: '600',
+      marginLeft: 8,
+    },
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor="#000000" />
-      
+      <StatusBar style="light" backgroundColor={colors.darkBackground} />
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Configuración</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={true}
@@ -190,10 +318,10 @@ const SettingsScreen = ({ navigation }) => {
         persistentScrollbar={true}
       >
         {settingsSections.map(renderSection)}
-        
+
         {/* Reset Section */}
         <View style={styles.dangerSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.dangerButton}
             onPress={() => {
               Alert.alert(
@@ -201,8 +329,8 @@ const SettingsScreen = ({ navigation }) => {
                 '¿Estás seguro de que quieres restablecer todas las configuraciones a los valores por defecto?',
                 [
                   { text: 'Cancelar', style: 'cancel' },
-                  { 
-                    text: 'Restablecer', 
+                  {
+                    text: 'Restablecer',
                     style: 'destructive',
                     onPress: () => {
                       setNotifications(true);
@@ -216,7 +344,7 @@ const SettingsScreen = ({ navigation }) => {
               );
             }}
           >
-            <Ionicons name="refresh" size={20} color="#FF4444" />
+            <Ionicons name="refresh" size={20} color={colors.error} />
             <Text style={styles.dangerButtonText}>Restablecer Configuración</Text>
           </TouchableOpacity>
         </View>
@@ -224,130 +352,5 @@ const SettingsScreen = ({ navigation }) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  
-  headerSpacer: {
-    width: 40,
-  },
-  
-  content: {
-    flex: 1,
-  },
-  
-  scrollContainer: {
-    padding: 20,
-    paddingBottom: 50,
-    minHeight: '120%',
-  },
-  
-  section: {
-    marginBottom: 30,
-  },
-  
-  sectionTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
-  
-  sectionContent: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  
-  settingItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  
-  settingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  
-  settingIcon: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(0, 255, 136, 0.1)',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  
-  settingText: {
-    flex: 1,
-  },
-  
-  settingTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  
-  settingSubtitle: {
-    color: '#CCCCCC',
-    fontSize: 14,
-  },
-  
-  settingControl: {
-    marginLeft: 10,
-  },
-  
-  dangerSection: {
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  
-  dangerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: '#FF4444',
-    borderRadius: 12,
-    padding: 16,
-  },
-  
-  dangerButtonText: {
-    color: '#FF4444',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-});
 
 export default SettingsScreen;

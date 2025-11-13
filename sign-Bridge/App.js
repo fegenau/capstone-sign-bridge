@@ -4,6 +4,11 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+
+// Theme Provider - Glassmorphic iOS Design
+import { ThemeProvider, COLORS } from './context/ThemeContext';
+
+// Screens
 import SplashScreen from './screens/SplashScreen';
 import HomeScreen from './screens/HomeScreen';
 import AlphabetDetectionScreen from './screens/AlphabetDetectionScreen';
@@ -11,17 +16,19 @@ import SettingsScreen from './screens/SettingsScreen';
 import NumberDetectionScreen from './screens/NumberDetectionScreen';
 import DictionaryScreen from './screens/DicctionaryScreen';
 import NumberScreen from './screens/NumberScreen';
+
 const Stack = createStackNavigator();
 
+// Navigation theme - Glassmorphic iOS
 const navigationTheme = {
   dark: true,
   colors: {
-    primary: '#00FF88',
-    background: '#000000',
-    card: '#1A1A1A',
-    text: '#FFFFFF',
-    border: '#333333',
-    notification: '#FF4444',
+    primary: COLORS.neonGreen,
+    background: COLORS.darkBackground,
+    card: COLORS.darkSurface,
+    text: COLORS.textPrimary,
+    border: COLORS.border,
+    notification: COLORS.error,
   },
 };
 
@@ -38,19 +45,20 @@ const App = () => {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer theme={navigationTheme}>
-        <ExpoStatusBar 
-          style="light" 
-          backgroundColor="#000000"
-          translucent={false}
-        /> 
-        
-        <Stack.Navigator 
-          initialRouteName="Splash"
-          screenOptions={{
-            headerShown: false,
-            cardStyle: { backgroundColor: '#000000' },
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <NavigationContainer theme={navigationTheme}>
+          <ExpoStatusBar
+            style="light"
+            backgroundColor={COLORS.darkBackground}
+            translucent={false}
+          />
+
+          <Stack.Navigator
+            initialRouteName="Splash"
+            screenOptions={{
+              headerShown: false,
+              cardStyle: { backgroundColor: COLORS.darkBackground },
             gestureEnabled: true,
             gestureDirection: 'horizontal',
             cardStyleInterpolator: ({ current, layouts }) => {
@@ -176,6 +184,7 @@ const App = () => {
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
+  </ThemeProvider>
   );
 };
 
