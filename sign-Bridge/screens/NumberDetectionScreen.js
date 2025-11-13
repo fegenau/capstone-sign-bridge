@@ -9,14 +9,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useTheme } from '../context/ThemeContext';
 
 const NumberDetectionScreen = ({ navigation }) => {
+  const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [detectedNumber, setDetectedNumber] = useState(null);
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDetectionActive, setIsDetectionActive] = useState(false);
-  const [facing, setFacing] = useState('front');  // ✅ FIXED: Added facing state
+  const [facing, setFacing] = useState('front');
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
   const videoRef = useRef(null);
@@ -52,16 +54,15 @@ const NumberDetectionScreen = ({ navigation }) => {
     try {
       setIsDetectionActive(true);
       setIsProcessing(true);
-      
-      // Mock de detección de números cada 2 segundos
+
       const interval = setInterval(() => {
-        const randomNumber = Math.floor(Math.random() * 10); // 0-9
-        const randomConfidence = Math.floor(Math.random() * 40) + 60; // 60-100%
-        
+        const randomNumber = Math.floor(Math.random() * 10);
+        const randomConfidence = Math.floor(Math.random() * 40) + 60;
+
         setDetectedNumber(randomNumber);
         setConfidence(randomConfidence);
-        
-        console.log(`📊 Número: ${randomNumber} (${randomConfidence}%)`);
+
+        console.log(`Número: ${randomNumber} (${randomConfidence}%)`);
       }, 2000);
 
       return () => clearInterval(interval);
@@ -103,11 +104,312 @@ const NumberDetectionScreen = ({ navigation }) => {
     );
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.darkBackground,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.darkBackground,
+      padding: 20,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 40,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerContent: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    headerSpacer: {
+      width: 40,
+    },
+    headerTitle: {
+      color: colors.textPrimary,
+      fontSize: 28,
+      fontWeight: 'bold',
+      textAlign: 'center',
+    },
+    headerSubtitle: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      textAlign: 'center',
+      marginTop: 5,
+    },
+    cameraContainer: {
+      flex: 1,
+      position: 'relative',
+    },
+    camera: {
+      flex: 1,
+    },
+    detectionOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      pointerEvents: 'none',
+    },
+    detectionBox: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      padding: 30,
+      borderRadius: 20,
+      alignItems: 'center',
+      borderWidth: 3,
+      borderColor: colors.neonGreen,
+    },
+    detectedText: {
+      fontSize: 100,
+      fontWeight: 'bold',
+      color: colors.neonGreen,
+      marginBottom: 10,
+    },
+    confidenceContainer: {
+      width: 200,
+      height: 8,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 4,
+      overflow: 'hidden',
+      marginBottom: 10,
+    },
+    confidenceBar: {
+      height: '100%',
+      borderRadius: 4,
+    },
+    confidenceText: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    waitingBox: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      padding: 20,
+      borderRadius: 15,
+      borderWidth: 2,
+      borderColor: colors.border,
+    },
+    waitingText: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      fontWeight: '600',
+    },
+    frameGuide: {
+      position: 'absolute',
+      top: '20%',
+      left: '10%',
+      right: '10%',
+      bottom: '35%',
+      pointerEvents: 'none',
+    },
+    corner: {
+      position: 'absolute',
+      width: 30,
+      height: 30,
+      borderColor: colors.neonBlue,
+      borderWidth: 3,
+      borderTopWidth: 3,
+      borderLeftWidth: 3,
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+    },
+    cornerTopRight: {
+      top: 0,
+      right: 0,
+      borderTopWidth: 3,
+      borderRightWidth: 3,
+      borderLeftWidth: 0,
+      borderBottomWidth: 0,
+    },
+    cornerBottomLeft: {
+      bottom: 0,
+      left: 0,
+      borderBottomWidth: 3,
+      borderLeftWidth: 3,
+      borderTopWidth: 0,
+      borderRightWidth: 0,
+    },
+    cornerBottomRight: {
+      bottom: 0,
+      right: 0,
+      borderBottomWidth: 3,
+      borderRightWidth: 3,
+      borderTopWidth: 0,
+      borderLeftWidth: 0,
+    },
+    guideTextContainer: {
+      position: 'absolute',
+      bottom: -40,
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+    },
+    guideText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+    },
+    statusContainer: {
+      position: 'absolute',
+      top: 20,
+      left: 20,
+      pointerEvents: 'none',
+    },
+    statusIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    statusText: {
+      color: colors.textPrimary,
+      fontSize: 12,
+      marginLeft: 6,
+    },
+    controls: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      paddingVertical: 20,
+      paddingHorizontal: 20,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+    },
+    controlButton: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      paddingVertical: 8,
+    },
+    controlButtonText: {
+      color: colors.textPrimary,
+      fontSize: 11,
+      marginTop: 4,
+      textAlign: 'center',
+    },
+    loadingText: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      fontWeight: '600',
+      textAlign: 'center',
+      marginTop: 20,
+    },
+    errorText: {
+      color: colors.error,
+      fontSize: 18,
+      fontWeight: '600',
+      textAlign: 'center',
+      marginTop: 20,
+    },
+    subtitleText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      textAlign: 'center',
+      marginTop: 10,
+      lineHeight: 20,
+    },
+    button: {
+      backgroundColor: colors.neonGreen,
+      paddingHorizontal: 30,
+      paddingVertical: 15,
+      borderRadius: 25,
+      marginTop: 30,
+    },
+    buttonText: {
+      color: colors.darkBackground,
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'center',
+    },
+    statusPanel: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      paddingVertical: 8,
+      paddingHorizontal: 15,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+    },
+    statusItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 2,
+    },
+    statusItemText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      marginLeft: 8,
+    },
+    numbersPanel: {
+      backgroundColor: colors.darkSurface,
+      padding: 15,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    numbersTitle: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 10,
+    },
+    numbersRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 5,
+    },
+    numberBox: {
+      width: 50,
+      height: 50,
+      backgroundColor: colors.darkSurface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      margin: 4,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    numberBoxActive: {
+      backgroundColor: colors.neonBlue,
+      transform: [{ scale: 1.15 }],
+      borderWidth: 2,
+      borderColor: colors.textPrimary,
+    },
+    numberText: {
+      color: colors.textPrimary,
+      fontSize: 24,
+      fontWeight: 'bold',
+    },
+    numberTextActive: {
+      color: colors.textPrimary,
+    },
+  });
+
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
         <StatusBar style="light" />
-        <Ionicons name="camera" size={80} color="#00FF88" />
+        <Ionicons name="camera" size={80} color={colors.neonGreen} />
         <Text style={styles.loadingText}>Inicializando cámara...</Text>
       </View>
     );
@@ -117,7 +419,7 @@ const NumberDetectionScreen = ({ navigation }) => {
     return (
       <View style={styles.centerContainer}>
         <StatusBar style="light" />
-        <Ionicons name="camera-off" size={80} color="#FF4444" />
+        <Ionicons name="camera-off" size={80} color={colors.error} />
         <Text style={styles.errorText}>Sin acceso a la cámara</Text>
         <Text style={styles.subtitleText}>{webError}</Text>
       </View>
@@ -127,14 +429,13 @@ const NumberDetectionScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header */}
+
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>SignBridge</Text>
@@ -143,7 +444,6 @@ const NumberDetectionScreen = ({ navigation }) => {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Vista de Cámara multiplataforma */}
       <View style={styles.cameraContainer}>
         <video
           ref={videoRef}
@@ -153,22 +453,21 @@ const NumberDetectionScreen = ({ navigation }) => {
           style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222' }}
           id="webcam-video-numbers"
         />
-        {/* Overlay de detección */}
         {isProcessing && detectedNumber !== null && confidence > 60 ? (
           <View style={styles.detectionOverlay}>
             <View style={styles.detectionBox}>
               <Text style={styles.detectedText}>{detectedNumber}</Text>
               <View style={styles.confidenceContainer}>
-                <View 
+                <View
                   style={[
-                    styles.confidenceBar, 
-                    { 
+                    styles.confidenceBar,
+                    {
                       width: `${confidence}%`,
-                      backgroundColor: 
-                        confidence > 80 ? '#00FF88' :
-                        confidence > 60 ? '#FFD700' : '#FF6B6B'
+                      backgroundColor:
+                        confidence > 80 ? colors.success :
+                        confidence > 60 ? colors.warning : colors.error
                     }
-                  ]} 
+                  ]}
                 />
               </View>
               <Text style={styles.confidenceText}>{confidence}% confianza</Text>
@@ -184,7 +483,6 @@ const NumberDetectionScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Frame guía */}
         <View style={styles.frameGuide}>
           <View style={styles.corner} />
           <View style={[styles.corner, styles.cornerTopRight]} />
@@ -197,13 +495,12 @@ const NumberDetectionScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Indicador de estado */}
         <View style={styles.statusContainer}>
           <View style={styles.statusIndicator}>
             <Ionicons
               name={isDetectionActive ? "camera" : "camera-off"}
               size={16}
-              color={isDetectionActive ? "#00FF88" : "#FFB800"}
+              color={isDetectionActive ? colors.neonGreen : colors.warning}
             />
             <Text style={styles.statusText}>
               {isDetectionActive ? 'Detectando' : 'Pausado'}
@@ -212,20 +509,19 @@ const NumberDetectionScreen = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Controles */}
       <View style={styles.controls}>
         <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-          <Ionicons name="camera-reverse" size={24} color="#fff" />
+          <Ionicons name="camera-reverse" size={24} color={colors.textPrimary} />
           <Text style={styles.controlButtonText}>
             {facing === 'back' ? 'Frontal' : 'Trasera'}
           </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.controlButton} onPress={toggleDetection}>
-          <Ionicons 
-            name={isDetectionActive ? "pause" : "play"} 
-            size={24} 
-            color={isDetectionActive ? "#FFB800" : "#00FF88"} 
+          <Ionicons
+            name={isDetectionActive ? "pause" : "play"}
+            size={24}
+            color={isDetectionActive ? colors.warning : colors.neonGreen}
           />
           <Text style={styles.controlButtonText}>
             {isDetectionActive ? 'Pausar' : 'Iniciar'}
@@ -233,29 +529,28 @@ const NumberDetectionScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Panel de estado */}
       <View style={styles.statusPanel}>
         <View style={styles.statusItem}>
-          <Ionicons 
-            name={isDetectionActive ? "radio-button-on" : "radio-button-off"} 
-            size={16} 
-            color={isDetectionActive ? "#00FF88" : "#666"} 
+          <Ionicons
+            name={isDetectionActive ? "radio-button-on" : "radio-button-off"}
+            size={16}
+            color={isDetectionActive ? colors.neonGreen : colors.textTertiary}
           />
           <Text style={styles.statusItemText}>
             {isDetectionActive ? 'Detección activa' : 'Detección pausada'}
           </Text>
         </View>
-        
+
         <View style={styles.statusItem}>
-          <Ionicons name="camera" size={16} color="#00FF88" />
+          <Ionicons name="camera" size={16} color={colors.neonGreen} />
           <Text style={styles.statusItemText}>
             Cámara {facing === 'back' ? 'trasera' : 'frontal'}
           </Text>
         </View>
-        
+
         {detectedNumber !== null && (
           <View style={styles.statusItem}>
-            <Ionicons name="checkmark-circle" size={16} color="#00FF88" />
+            <Ionicons name="checkmark-circle" size={16} color={colors.neonGreen} />
             <Text style={styles.statusItemText}>
               Detectado: {detectedNumber} ({confidence}%)
             </Text>
@@ -263,7 +558,6 @@ const NumberDetectionScreen = ({ navigation }) => {
         )}
       </View>
 
-      {/* Panel de números */}
       <View style={styles.numbersPanel}>
         <Text style={styles.numbersTitle}>
           Números de Referencia {detectedNumber !== null ? `- ${detectedNumber}` : ''}
@@ -294,304 +588,5 @@ const NumberDetectionScreen = ({ navigation }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000000',
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  headerSubtitle: {
-    color: '#CCCCCC',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 5,
-  },
-  cameraContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  camera: {
-    flex: 1,
-  },
-  detectionOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    pointerEvents: 'none',
-  },
-  detectionBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 30,
-    borderRadius: 20,
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#00FF88',
-  },
-  detectedText: {
-    fontSize: 100,
-    fontWeight: 'bold',
-    color: '#00FF88',
-    marginBottom: 10,
-  },
-  confidenceContainer: {
-    width: 200,
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  confidenceBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  confidenceText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  waitingBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 20,
-    borderRadius: 15,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  waitingText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  frameGuide: {
-    position: 'absolute',
-    top: '20%',
-    left: '10%',
-    right: '10%',
-    bottom: '35%',
-    pointerEvents: 'none',
-  },
-  corner: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderColor: '#4A90E2',
-    borderWidth: 3,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-  },
-  cornerTopRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-  },
-  cornerBottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderTopWidth: 0,
-    borderRightWidth: 0,
-  },
-  cornerBottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderTopWidth: 0,
-    borderLeftWidth: 0,
-  },
-  guideTextContainer: {
-    position: 'absolute',
-    bottom: -40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  guideText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusContainer: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    pointerEvents: 'none',
-  },
-  statusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    marginLeft: 6,
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  controlButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 8,
-  },
-  controlButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  errorText: {
-    color: '#FF4444',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  subtitleText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 10,
-    lineHeight: 20,
-  },
-  button: {
-    backgroundColor: '#00FF88',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    marginTop: 30,
-  },
-  buttonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  statusPanel: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 2,
-  },
-  statusItemText: {
-    color: '#CCCCCC',
-    fontSize: 12,
-    marginLeft: 8,
-  },
-  numbersPanel: {
-    backgroundColor: '#1a1a1a',
-    padding: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
-  numbersTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  numbersRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 5,
-  },
-  numberBox: {
-    width: 50,
-    height: 50,
-    backgroundColor: '#333',
-    margin: 4,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  numberBoxActive: {
-    backgroundColor: '#4A90E2',
-    transform: [{ scale: 1.15 }],
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  numberText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  numberTextActive: {
-    color: '#fff',
-  },
-});
 
 export default NumberDetectionScreen;

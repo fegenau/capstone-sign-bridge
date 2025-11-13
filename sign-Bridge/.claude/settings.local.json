@@ -4,7 +4,12 @@
       "Bash(tree:*)",
       "Bash(node:*)",
       "Bash(npm test:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npx eslint:*)",
+      "Bash(for file in screens/AlphabetDetectionScreen.js screens/NumberDetectionScreen.js screens/SettingsScreen.js screens/SplashScreen.js screens/NumberScreen.js)",
+      "Bash(do node -c \"$file\")",
+      "Bash(done)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

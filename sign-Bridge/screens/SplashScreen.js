@@ -2,10 +2,13 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, Image} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 const icon = require('../assets/images/IconSignBridge.png');
+
 const SplashScreen = ({ navigation }) => {
+  const { colors } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -75,14 +78,135 @@ const SplashScreen = ({ navigation }) => {
     };
   }, [navigation]);
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.darkBackground,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    backgroundGradient: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.darkBackground,
+      opacity: 0.1,
+    },
+
+    content: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    logoContainer: {
+      position: 'relative',
+      marginBottom: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    logoBackground: {
+      position: 'absolute',
+      width: 120,
+      height: 120,
+      backgroundColor: 'rgba(0, 255, 136, 0.1)',
+      borderRadius: 60,
+      borderWidth: 2,
+      borderColor: 'rgba(0, 255, 136, 0.3)',
+    },
+
+    logoGlow: {
+      position: 'absolute',
+      width: 140,
+      height: 140,
+      backgroundColor: 'transparent',
+      borderRadius: 70,
+      borderWidth: 1,
+      borderColor: 'rgba(0, 255, 136, 0.2)',
+    },
+
+    title: {
+      color: colors.textPrimary,
+      fontSize: 42,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 8,
+      letterSpacing: 2,
+    },
+
+    subtitle: {
+      color: colors.textSecondary,
+      fontSize: 18,
+      textAlign: 'center',
+      marginBottom: 5,
+      fontWeight: '300',
+    },
+
+    version: {
+      color: colors.textTertiary,
+      fontSize: 14,
+      textAlign: 'center',
+      marginTop: 10,
+    },
+
+    loadingContainer: {
+      position: 'absolute',
+      bottom: height * 0.25,
+      alignItems: 'center',
+    },
+
+    loadingText: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      marginBottom: 15,
+      fontWeight: '500',
+    },
+
+    dotsContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.neonGreen,
+      marginHorizontal: 4,
+    },
+
+    footer: {
+      position: 'absolute',
+      bottom: 40,
+      alignItems: 'center',
+    },
+
+    footerText: {
+      color: colors.textTertiary,
+      fontSize: 12,
+      textAlign: 'center',
+    },
+
+    footerSubtext: {
+      color: colors.textTertiary,
+      fontSize: 10,
+      textAlign: 'center',
+      marginTop: 2,
+      opacity: 0.7,
+    },
+  });
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor="#000000" translucent={false} />
-      
+      <StatusBar style="light" backgroundColor={colors.darkBackground} translucent={false} />
+
       {/* Fondo con gradiente simulado */}
       <View style={styles.backgroundGradient} />
-      
-      <Animated.View 
+
+      <Animated.View
         style={[
           styles.content,
           {
@@ -104,12 +228,12 @@ const SplashScreen = ({ navigation }) => {
                           borderRadius: 75,
                         }} />
         </View>
-        
+
         {/* Título */}
         <Text style={styles.subtitle}>Aprende el alfabeto de señas</Text>
         <Text style={styles.version}>v1.0.0</Text>
       </Animated.View>
-      
+
       {/* Indicador de carga */}
       <Animated.View style={[styles.loadingContainer, { opacity: fadeAnim }]}>
         <Text style={styles.loadingText}>Cargando</Text>
@@ -119,7 +243,7 @@ const SplashScreen = ({ navigation }) => {
           <Animated.View style={[styles.dot, { opacity: dotOpacity3 }]} />
         </View>
       </Animated.View>
-      
+
       {/* Footer */}
       <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
         <Text style={styles.footerText}>Desarrollado con React Native</Text>
@@ -128,125 +252,5 @@ const SplashScreen = ({ navigation }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#000000',
-    opacity: 0.1,
-  },
-  
-  content: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  
-  logoContainer: {
-    position: 'relative',
-    marginBottom: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  
-  logoBackground: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    backgroundColor: 'rgba(0, 255, 136, 0.1)',
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: 'rgba(0, 255, 136, 0.3)',
-  },
-  
-  logoGlow: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    backgroundColor: 'transparent',
-    borderRadius: 70,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 136, 0.2)',
-  },
-  
-  title: {
-    color: '#FFFFFF',
-    fontSize: 42,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: 2,
-  },
-  
-  subtitle: {
-    color: '#CCCCCC',
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 5,
-    fontWeight: '300',
-  },
-  
-  version: {
-    color: '#666666',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  
-  loadingContainer: {
-    position: 'absolute',
-    bottom: height * 0.25,
-    alignItems: 'center',
-  },
-  
-  loadingText: {
-    color: '#CCCCCC',
-    fontSize: 16,
-    marginBottom: 15,
-    fontWeight: '500',
-  },
-  
-  dotsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00FF88',
-    marginHorizontal: 4,
-  },
-  
-  footer: {
-    position: 'absolute',
-    bottom: 40,
-    alignItems: 'center',
-  },
-  
-  footerText: {
-    color: '#666666',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  
-  footerSubtext: {
-    color: '#444444',
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-});
 
 export default SplashScreen;

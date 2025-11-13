@@ -9,10 +9,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
+import { useTheme } from "../context/ThemeContext";
 import DetectionOverlay from "../components/camera/DetectionOverlay";
 import { detectionService } from "../utils/services/detectionService";
 
 const AlphabetDetectionScreen = ({ navigation }) => {
+  const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [detectedLetter, setDetectedLetter] = useState(null);
   const [confidence, setConfidence] = useState(0);
@@ -20,8 +22,7 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   const [isDetectionActive, setIsDetectionActive] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [facing, setFacing] = useState("front");  // ✅ FIXED: Added facing state
-  // Web-specific
+  const [facing, setFacing] = useState("front");
   const [webStream, setWebStream] = useState(null);
   const [webError, setWebError] = useState(null);
   const videoRef = useRef(null);
@@ -29,35 +30,65 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 
   useEffect(() => {
     screenMountedRef.current = true;
-    // Solo web - eliminar verificación Platform.OS
     setIsLoading(true);
+
     const getWebcam = async () => {
       try {
+        // Request camera with specific constraints for better compatibility
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: facing === "front" ? "user" : "environment",
+          },
+          audio: false,
         });
+
+        if (!screenMountedRef.current) return;
+
         setWebStream(stream);
         setWebError(null);
-        setIsLoading(false);
-        setIsDetectionActive(true);
+
+        // Ensure video element gets the stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // Ensure video plays
+          videoRef.current.play().catch(err => {
+            console.warn("Video play failed:", err);
+          });
         }
+
+        setIsLoading(false);
+        setIsDetectionActive(true);
         startDetection();
-        } catch (err) {
-          setWebError("No se pudo acceder a la cámara.");
+
+      } catch (err) {
+        if (screenMountedRef.current) {
+          let errorMsg = "No se pudo acceder a la cámara.";
+          if (err.name === "NotAllowedError") {
+            errorMsg = "Permiso de cámara denegado. Por favor, permite el acceso.";
+          } else if (err.name === "NotFoundError") {
+            errorMsg = "No se encontró ninguna cámara en el dispositivo.";
+          } else if (err.name === "NotReadableError") {
+            errorMsg = "La cámara está siendo usada por otra aplicación.";
+          }
+          setWebError(errorMsg);
           setIsLoading(false);
+          console.error("Camera error:", err);
         }
-      };
-      getWebcam();
-      return () => {
-        detectionService.stopDetection();
-        if (webStream) {
-          webStream.getTracks().forEach((track) => track.stop());
-        }
-        screenMountedRef.current = false;
-      };
-    }, []);
+      }
+    };
+
+    getWebcam();
+
+    return () => {
+      detectionService.stopDetection();
+      if (webStream) {
+        webStream.getTracks().forEach((track) => track.stop());
+      }
+      screenMountedRef.current = false;
+    };
+  }, [facing]);
   useEffect(() => {
     const handleDetectionResult = (result) => {
       if (result.isProcessing !== undefined) {
@@ -112,9 +143,20 @@ const AlphabetDetectionScreen = ({ navigation }) => {
   };
 
   const toggleCameraFacing = () => {
-    // Al cambiar de cámara, la vista se re-monta; marcamos como no lista hasta onCameraReady
-    setIsCameraReady(false);
+    // Stop detection when switching cameras
+    if (isDetectionActive) {
+      stopDetection();
+    }
+
+    // Stop current stream before switching
+    if (webStream) {
+      webStream.getTracks().forEach((track) => track.stop());
+      setWebStream(null);
+    }
+
+    // Toggle facing mode - useEffect will handle camera reinitialization
     setFacing((current) => (current === "back" ? "front" : "back"));
+    setIsLoading(true);
   };
 
   const toggleDetection = () => {
@@ -135,41 +177,40 @@ const AlphabetDetectionScreen = ({ navigation }) => {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.darkBackground }]}>
         <StatusBar style="light" />
-        <Ionicons name="camera" size={80} color="#00FF88" />
-        <Text style={styles.loadingText}>Inicializando cámara...</Text>
+        <Ionicons name="camera" size={80} color={colors.neonGreen} />
+        <Text style={[styles.loadingText, { color: colors.textPrimary }]}>Inicializando cámara...</Text>
       </View>
     );
   }
 
-  // Solo web - verificar errores de cámara
   if (webError) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.darkBackground }]}>
         <StatusBar style="light" />
-        <Ionicons name="close-circle-outline" size={80} color="#FF4444" />
-        <Text style={styles.errorText}>Sin acceso a la cámara</Text>
-        <Text style={styles.subtitleText}>{webError}</Text>
+        <Ionicons name="close-circle-outline" size={80} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.textPrimary }]}>Sin acceso a la cámara</Text>
+        <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>{webError}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.darkBackground }]}>
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.darkSurface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>SignBridge</Text>
-          <Text style={styles.headerSubtitle}>Detección de Alfabeto</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>SignBridge</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Detección de Alfabeto</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -185,9 +226,17 @@ const AlphabetDetectionScreen = ({ navigation }) => {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            background: "#222",
+            backgroundColor: "#222",
+            transform: facing === "front" ? "scaleX(-1)" : "scaleX(1)",
           }}
           id="webcam-video-alphabet"
+          onLoadedMetadata={() => {
+            console.log("✓ Video stream loaded successfully");
+          }}
+          onError={(err) => {
+            console.error("✗ Video element error:", err);
+            setWebError("Error al reproducir el stream de video");
+          }}
         />
         {/* Overlay de detección */}
         <DetectionOverlay

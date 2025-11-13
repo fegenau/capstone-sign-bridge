@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, SafeAreaView } from 'react-native';
 import AlphabetGrid from '../components/common/AlphabetGrid';
 import { LETTER_IMAGES } from '../utils/constants/alphabetImages';
+import { useTheme } from '../context/ThemeContext';
 
 const DictionaryScreen = ({ navigation}) => {
+  const { colors } = useTheme();
   const [selectedLetter, setSelectedLetter] = useState(null);
 
   const handleLetterPress = (letter) => {
@@ -11,6 +13,52 @@ const DictionaryScreen = ({ navigation}) => {
     // Si más adelante hay una pantalla de detalle, aquí se puede navegar
     // navigation.navigate('LetterDetail', { letter });
   };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.darkBackground,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContainer: {
+      paddingTop: 14,
+      paddingBottom: 50,
+      minHeight: '120%',
+    },
+    title: {
+      color: colors.textPrimary,
+      fontSize: 24,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    subtitle: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      textAlign: 'center',
+      marginBottom: 8,
+      paddingHorizontal: 16,
+    },
+    previewContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingHorizontal: 16,
+    },
+    previewTitle: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      fontWeight: '600',
+      marginVertical: 12,
+    },
+    previewImage: {
+      width: '90%',
+      height: 300,
+      borderRadius: 8,
+    },
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -42,51 +90,5 @@ const DictionaryScreen = ({ navigation}) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContainer: {
-    paddingTop: 14,
-    paddingBottom: 50,
-    minHeight: '120%',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: '#CCCCCC',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 16,
-  },
-  previewContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 16,
-  },
-  previewTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginVertical: 12,
-  },
-  previewImage: {
-    width: '90%',
-    height: 300,
-    borderRadius: 8,
-  },
-});
 
 export default DictionaryScreen;

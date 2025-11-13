@@ -12,17 +12,20 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
+import { useTheme } from "../context/ThemeContext";
 
 const { width, height } = Dimensions.get("window");
 
 const HomeScreen = ({ navigation }) => {
+  const { colors, styles: themeStyles } = useTheme();
+
   const menuOptions = [
     {
       id: "dictionary",
       title: "Diccionario",
       subtitle: "Explora todas las letras",
       icon: "library",
-      color: "#FFB800",
+      color: colors.warning,
       screen: "Dictionary",
       available: true,
     },
@@ -31,7 +34,7 @@ const HomeScreen = ({ navigation }) => {
       title: "Modo Números",
       subtitle: "Aprende los números en señas",
       icon: "school",
-      color: "#007AFF",
+      color: colors.neonBlue,
       screen: "Number",
       available: true,
     },
@@ -40,7 +43,7 @@ const HomeScreen = ({ navigation }) => {
       title: "Configuración",
       subtitle: "Ajustes de la aplicación",
       icon: "settings",
-      color: "#8E8E93",
+      color: colors.textSecondary,
       screen: "Settings",
       available: true,
     },
@@ -60,7 +63,13 @@ const HomeScreen = ({ navigation }) => {
       style={[
         styles.menuItem,
         !option.available && styles.menuItemDisabled,
-        { borderLeftColor: option.color },
+        {
+          borderLeftColor: option.color,
+          backgroundColor: colors.darkSurface,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
       ]}
       onPress={() => handleMenuPress(option)}
       activeOpacity={0.7}
@@ -75,20 +84,25 @@ const HomeScreen = ({ navigation }) => {
           <Ionicons
             name={option.icon}
             size={24}
-            color={option.available ? option.color : "#666"}
+            color={option.available ? option.color : colors.textTertiary}
           />
         </View>
 
         <View style={styles.textContainer}>
           <Text
-            style={[styles.menuTitle, !option.available && styles.textDisabled]}
+            style={[
+              styles.menuTitle,
+              { color: colors.textPrimary },
+              !option.available && { color: colors.textTertiary },
+            ]}
           >
             {option.title}
           </Text>
           <Text
             style={[
               styles.menuSubtitle,
-              !option.available && styles.textDisabled,
+              { color: colors.textSecondary },
+              !option.available && { color: colors.textTertiary },
             ]}
           >
             {option.subtitle}
@@ -97,14 +111,14 @@ const HomeScreen = ({ navigation }) => {
 
         <View style={styles.arrowContainer}>
           {!option.available && (
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>Próximamente</Text>
+            <View style={[styles.comingSoonBadge, { backgroundColor: `${colors.warning}20` }]}>
+              <Text style={[styles.comingSoonText, { color: colors.warning }]}>Próximamente</Text>
             </View>
           )}
           <Ionicons
             name="chevron-forward"
             size={20}
-            color={option.available ? "#CCCCCC" : "#666"}
+            color={option.available ? colors.textSecondary : colors.textTertiary}
           />
         </View>
       </View>
@@ -114,8 +128,8 @@ const HomeScreen = ({ navigation }) => {
   const icon = require("../assets/images/IconSignBridge.png");
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor="#000000" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.darkBackground }]}>
+      <StatusBar style="light" backgroundColor={colors.darkBackground} />
 
       <ScrollView
         style={styles.scrollView}
@@ -137,19 +151,19 @@ const HomeScreen = ({ navigation }) => {
               borderRadius: 75,
             }}
           />
-          <Text style={styles.appSubtitle}>Aprende el alfabeto de señas</Text>
+          <Text style={[styles.appSubtitle, { color: colors.textSecondary }]}>Aprende el alfabeto de señas</Text>
         </View>
 
         <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>¡Bienvenido!</Text>
-          <Text style={styles.welcomeText}>
+          <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>¡Bienvenido!</Text>
+          <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
             Comienza tu viaje aprendiendo el alfabeto de lenguaje de señas. Usa
             la cámara para practicar o explora nuestras lecciones.
           </Text>
         </View>
 
         <TouchableOpacity
-          style={styles.quickStartCard}
+          style={[styles.quickStartCard, { backgroundColor: colors.neonGreen }]}
           onPress={() => navigation.navigate("AlphabetDetection")}
           activeOpacity={0.8}
         >
@@ -178,7 +192,7 @@ const HomeScreen = ({ navigation }) => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
             SignBridge v1.0.0 • Capstone Project
           </Text>
         </View>
@@ -199,7 +213,7 @@ const styles = StyleSheet.create({
 
   scrollContainer: {
     paddingBottom: 50,
-    minHeight: '120%', // Forzar que el contenido sea más alto que la pantalla
+    minHeight: '120%',
   },
 
   header: {
@@ -234,7 +248,6 @@ const styles = StyleSheet.create({
   },
 
   appSubtitle: {
-    color: "#CCCCCC",
     fontSize: 14,
     marginTop: 2,
   },
@@ -245,14 +258,12 @@ const styles = StyleSheet.create({
   },
 
   welcomeTitle: {
-    color: "#FFFFFF",
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 10,
   },
 
   welcomeText: {
-    color: "#CCCCCC",
     fontSize: 16,
     lineHeight: 24,
   },
@@ -260,12 +271,10 @@ const styles = StyleSheet.create({
   quickStartCard: {
     margin: 20,
     marginBottom: 12,
-    backgroundColor: "#00FF88",
     borderRadius: 16,
     padding: 20,
   },
 
-  // ✅ NUEVO: Estilo para card de números
   quickStartCardSecondary: {
     marginHorizontal: 20,
     marginBottom: 12,
@@ -291,7 +300,6 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
 
-  // ✅ NUEVO: Ícono para card de números
   quickStartIconSecondary: {
     width: 60,
     height: 60,
@@ -318,7 +326,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ✅ NUEVO: Títulos para card de números
   quickStartTitleSecondary: {
     color: "#FFFFFF",
     fontSize: 20,
@@ -343,8 +350,6 @@ const styles = StyleSheet.create({
   },
 
   menuItem: {
-    backgroundColor: "#1A1A1A",
-    borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 4,
   },
@@ -373,14 +378,12 @@ const styles = StyleSheet.create({
   },
 
   menuTitle: {
-    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 2,
   },
 
   menuSubtitle: {
-    color: "#CCCCCC",
     fontSize: 14,
   },
 
@@ -393,7 +396,6 @@ const styles = StyleSheet.create({
   },
 
   comingSoonBadge: {
-    backgroundColor: "rgba(255, 184, 0, 0.2)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -401,7 +403,6 @@ const styles = StyleSheet.create({
   },
 
   comingSoonText: {
-    color: "#FFB800",
     fontSize: 10,
     fontWeight: "600",
   },
@@ -434,7 +435,6 @@ const styles = StyleSheet.create({
   },
 
   footerText: {
-    color: "#666666",
     fontSize: 12,
     textAlign: "center",
   },
