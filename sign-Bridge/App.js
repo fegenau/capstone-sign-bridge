@@ -12,6 +12,7 @@ import { ThemeProvider, COLORS } from './context/ThemeContext';
 import SplashScreen from './screens/SplashScreen';
 import HomeScreen from './screens/HomeScreen';
 import AlphabetDetectionScreen from './screens/AlphabetDetectionScreen';
+import RealTimeDetectionScreen from './screens/RealTimeDetectionScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NumberDetectionScreen from './screens/NumberDetectionScreen';
 import DictionaryScreen from './screens/DicctionaryScreen';
@@ -98,14 +99,25 @@ const App = () => {
           />
           
           {/* Alphabet Detection Screen */}
-          <Stack.Screen 
-            name="AlphabetDetection" 
+          <Stack.Screen
+            name="AlphabetDetection"
             component={AlphabetDetectionScreen}
             options={{
               title: 'Detección',
               headerShown: false,
             }}
           />
+
+          {/* Real-Time Detection Screen (with MediaPipe + TensorFlow) */}
+          <Stack.Screen
+            name="RealTimeDetection"
+            component={RealTimeDetectionScreen}
+            options={{
+              title: 'Detección en Tiempo Real',
+              headerShown: false,
+            }}
+          />
+
           <Stack.Screen 
             name="Number" 
             component={NumberScreen}

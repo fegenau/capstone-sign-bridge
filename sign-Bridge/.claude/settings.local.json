@@ -9,7 +9,20 @@
       "Bash(for file in screens/AlphabetDetectionScreen.js screens/NumberDetectionScreen.js screens/SettingsScreen.js screens/SplashScreen.js screens/NumberScreen.js)",
       "Bash(do node -c \"$file\")",
       "Bash(done)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npx metro:*)",
+      "Bash(for file in components/detection/ConfidenceIndicator.js components/detection/AudioButton.js components/detection/ResultInteraction.js components/detection/DetectionHistory.js)",
+      "Bash(echo:*)",
+      "Bash(npx babel:*)",
+      "Bash(for file in screens/RealTimeDetectionScreen.js components/detection/ConfidenceIndicator.js components/detection/AudioButton.js components/detection/ResultInteraction.js components/detection/DetectionHistory.js App.js)",
+      "Bash(do echo \"Testing: $file\")",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)",
+      "Bash(npm ls:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm start)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
