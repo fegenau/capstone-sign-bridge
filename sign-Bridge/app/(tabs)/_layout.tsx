@@ -34,10 +34,31 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="simple-test"
+        options={{
+          title: 'Test',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="play.circle" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: 'Explore',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="detection"
+        options={{
+          title: 'Detect',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="viewfinder.circle" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="camera-test"
+        options={{
+          title: 'CamTest',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="camera" color={color} />,
         }}
       />
     </Tabs>

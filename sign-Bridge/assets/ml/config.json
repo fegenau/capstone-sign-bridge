@@ -1,0 +1,158 @@
+{
+  "model_info": {
+    "name": "SignBridge LSTM Movement Classifier",
+    "version": "2.0.0",
+    "type": "sequential_classifier",
+    "framework": "tensorflow.js",
+    "architecture": "bidirectional_lstm",
+    "date_converted": "2025-11-13",
+    "description": "Chilean Sign Language recognition model trained on 67 classes"
+  },
+  "input": {
+    "shape": [24, 126],
+    "batch_shape": [null, 24, 126],
+    "dtype": "float32",
+    "name": "keypoints",
+    "description": "Sequential hand landmarks (24 frames × 126 features)",
+    "feature_breakdown": {
+      "left_hand": {
+        "landmarks": 21,
+        "coords_per_landmark": 3,
+        "total_features": 63,
+        "range": [0, 62],
+        "order": "x,y,z for each landmark"
+      },
+      "right_hand": {
+        "landmarks": 21,
+        "coords_per_landmark": 3,
+        "total_features": 63,
+        "range": [63, 125],
+        "order": "x,y,z for each landmark"
+      }
+    },
+    "landmark_order": [
+      "WRIST",
+      "THUMB_CMC",
+      "THUMB_MCP",
+      "THUMB_IP",
+      "THUMB_TIP",
+      "INDEX_FINGER_MCP",
+      "INDEX_FINGER_PIP",
+      "INDEX_FINGER_DIP",
+      "INDEX_FINGER_TIP",
+      "MIDDLE_FINGER_MCP",
+      "MIDDLE_FINGER_PIP",
+      "MIDDLE_FINGER_DIP",
+      "MIDDLE_FINGER_TIP",
+      "RING_FINGER_MCP",
+      "RING_FINGER_PIP",
+      "RING_FINGER_DIP",
+      "RING_FINGER_TIP",
+      "PINKY_MCP",
+      "PINKY_PIP",
+      "PINKY_DIP",
+      "PINKY_TIP"
+    ]
+  },
+  "output": {
+    "shape": [67],
+    "dtype": "float32",
+    "activation": "softmax",
+    "description": "Probability distribution over 67 sign classes"
+  },
+  "preprocessing": {
+    "normalization": "minmax",
+    "value_range": [0, 1],
+    "missing_value": 0.0,
+    "masking_enabled": true,
+    "notes": "Model includes Masking layer to handle missing frames"
+  },
+  "inference": {
+    "min_frames_required": 24,
+    "buffer_type": "circular",
+    "confidence_threshold": 0.5,
+    "smooth_window": 8,
+    "fps_recommendation": 30,
+    "max_inference_time_ms": 100
+  },
+  "performance": {
+    "training_accuracy": 0.928,
+    "validation_accuracy": 0.920,
+    "dataset": "Chilean Sign Language",
+    "total_parameters": 1032771,
+    "model_size_mb": 11.9
+  },
+  "compatibility": {
+    "tfjs_version": ">=4.0.0",
+    "backends": ["webgl", "wasm", "cpu"],
+    "platforms": ["web", "react-native", "node"],
+    "optimized_for": "mobile",
+    "react_native": {
+      "expo_sdk": ">=51.0.0",
+      "requires": [
+        "@tensorflow/tfjs",
+        "@tensorflow/tfjs-react-native",
+        "@tensorflow/tfjs-backend-webgl"
+      ]
+    }
+  },
+  "troubleshooting": {
+    "black_camera_screen": "Separate inference thread with requestAnimationFrame",
+    "slow_performance": "Reduce FPS to 15-20, enable WebGL backend",
+    "inconsistent_predictions": "Use smooth_window=8 to average predictions",
+    "memory_issues": "Clear tensor memory after each inference with tf.dispose()"
+  },
+  "architecture": {
+    "layers": [
+      {
+        "name": "keypoints",
+        "type": "InputLayer",
+        "shape": [null, 24, 126]
+      },
+      {
+        "name": "masking",
+        "type": "Masking",
+        "mask_value": 0.0
+      },
+      {
+        "name": "bidirectional",
+        "type": "Bidirectional",
+        "units": 160,
+        "return_sequences": true
+      },
+      {
+        "name": "dropout",
+        "type": "Dropout",
+        "rate": 0.3
+      },
+      {
+        "name": "bidirectional_1",
+        "type": "Bidirectional",
+        "units": 160,
+        "return_sequences": false
+      },
+      {
+        "name": "dropout_1",
+        "type": "Dropout",
+        "rate": 0.3
+      },
+      {
+        "name": "dense",
+        "type": "Dense",
+        "units": 128,
+        "activation": "relu"
+      },
+      {
+        "name": "dropout_2",
+        "type": "Dropout",
+        "rate": 0.3
+      },
+      {
+        "name": "dense_1",
+        "type": "Dense",
+        "units": 67,
+        "activation": "softmax"
+      }
+    ]
+  }
+}

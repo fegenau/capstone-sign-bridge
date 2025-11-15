@@ -63,6 +63,7 @@ const HAND_LANDMARKS = {
 export const useMediaPipeDetection = ({
   videoRef = null,
   onKeypointsReady = null,
+  onFrameKeypoints = null, // <- nuevo: callback por frame (126 features normalizados)
   onError = null,
   enableDebug = false,
 }) => {
@@ -168,6 +169,10 @@ export const useMediaPipeDetection = ({
       if (onKeypointsReady) {
         onKeypointsReady(mediaRef.current.frameBuffer);
       }
+    }
+    // Notificar frame individual para pipelines que buferizan afuera
+    if (onFrameKeypoints) {
+      try { onFrameKeypoints(keypoints); } catch (e) { /* ignore */ }
     }
   }, [onKeypointsReady]);
 
@@ -302,33 +307,28 @@ export const useMediaPipeDetection = ({
   useEffect(() => {
     const initializeMediaPipe = async () => {
       try {
-        _log('📦 Inicializando MediaPipe...');
-
-        // Dinámicamente importar MediaPipe (para evitar bundle grande)
-        const vision = await import('@mediapipe/tasks-vision');
-
-        if (!vision || !vision.HandLandmarker) {
-          throw new Error(
-            'MediaPipe Vision no disponible. Instala: npm install @mediapipe/tasks-vision'
-          );
+        if (Platform.OS !== 'web') {
+          // En móvil todavía no tenemos HandLandmarker WASM; usar dummy hasta integración nativa.
+            _log('📦 Mobile: usando detector simulado temporal (WASM no soportado)');
+            mediaRef.current.handDetector = createDummyDetector();
+            mediaRef.current.isInitialized = true;
+            setIsReady(true);
+            return;
         }
-
-        // Crear Hand Landmarker
-        const handLandmarker = await vision.HandLandmarker.createFromOptions(
-          // web
-          // En móvil sería diferente
-        );
-
+        _log('📦 Inicializando MediaPipe HandLandmarker (web)...');
+        const vision = await import('@mediapipe/tasks-vision');
+        if (!vision || !vision.FilesetResolver || !vision.HandLandmarker) throw new Error('Tasks-vision incompleto');
+        const filesetResolver = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm');
+        const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+        const options = { baseOptions: { modelAssetPath: MODEL_URL }, runningMode: 'VIDEO', numHands: 2 };
+        const handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver, options);
         mediaRef.current.handDetector = handLandmarker;
         mediaRef.current.isInitialized = true;
-
-        _log('✅ MediaPipe inicializado');
+        _log('✅ HandLandmarker web inicializado');
         setIsReady(true);
       } catch (err) {
         console.error('[useMediaPipeDetection] Error inicializando:', err);
-
-        // Fallback: crear detector dummy para no bloquear
-        _log('⚠️ Fallback: Usando detector simulado');
+        _log('⚠️ Fallback dummy por error de inicialización');
         mediaRef.current.handDetector = createDummyDetector();
         mediaRef.current.isInitialized = true;
         setIsReady(true);

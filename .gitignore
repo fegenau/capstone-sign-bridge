@@ -77,3 +77,13 @@ coverage/
 .env
 .env.local
 .env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Camera test outputs
+sign-Bridge/assets/model/test_camera_*.jpg
