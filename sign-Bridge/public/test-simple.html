@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SignBridge - Test Simple</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif; 
+      background: #000; 
+      color: #fff;
+      overflow: hidden;
+    }
+    #container { 
+      position: relative; 
+      width: 100vw; 
+      height: 100vh; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #video { 
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.8);
+      padding: 16px;
+      border-radius: 12px;
+      max-width: 400px;
+    }
+    h1 { font-size: 20px; margin-bottom: 12px; color: #4ade80; }
+    .status { 
+      font-size: 14px; 
+      margin: 6px 0; 
+      padding: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+    .prediction {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(74, 222, 128, 0.2);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .confidence {
+      font-size: 14px;
+      color: #a3a3a3;
+      text-align: center;
+      margin-top: 4px;
+    }
+    .error { color: #ef4444; }
+    .success { color: #4ade80; }
+    .warning { color: #fb923c; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="overlay">
+      <h1>🤟 SignBridge Test</h1>
+      <div class="status" id="cameraStatus">📹 Cámara: Iniciando...</div>
+      <div class="status" id="modelStatus">🧠 Modelo: Cargando...</div>
+      <div class="status" id="bufferStatus">📊 Buffer: 0/24</div>
+      <div class="status" id="backendStatus">⚙️ Backend: --</div>
+      <div class="prediction" id="prediction">--</div>
+      <div class="confidence" id="confidence">Confianza: 0%</div>
+    </div>
+  </div>
+
+  <script>
+    // Referencias DOM
+    const video = document.getElementById('video');
+    const cameraStatus = document.getElementById('cameraStatus');
+    const modelStatus = document.getElementById('modelStatus');
+    const bufferStatus = document.getElementById('bufferStatus');
+    const backendStatus = document.getElementById('backendStatus');
+    const predictionEl = document.getElementById('prediction');
+    const confidenceEl = document.getElementById('confidence');
+
+    // Estado
+    let model = null;
+    let labels = [];
+    const frameBuffer = [];
+    const MAX_FRAMES = 24;
+    let isProcessing = false;
+
+    // 1. Iniciar cámara
+    async function startCamera() {
+      try {
+        cameraStatus.textContent = '📹 Cámara: Solicitando permisos...';
+        cameraStatus.className = 'status warning';
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'user',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          } 
+        });
+        
+        video.srcObject = stream;
+        await video.play();
+        
+        cameraStatus.textContent = '📹 Cámara: ✅ Activa';
+        cameraStatus.className = 'status success';
+        
+        // Iniciar captura de frames
+        setTimeout(() => captureFrames(), 1000);
+      } catch (err) {
+        cameraStatus.textContent = `📹 Cámara: ❌ ${err.message}`;
+        cameraStatus.className = 'status error';
+        console.error('Camera error:', err);
+      }
+    }
+
+    // 2. Cargar modelo TF.js
+    async function loadModel() {
+      try {
+        modelStatus.textContent = '🧠 Modelo: Cargando...';
+        modelStatus.className = 'status warning';
+        
+        await tf.ready();
+        backendStatus.textContent = `⚙️ Backend: ${tf.getBackend()}`;
+        
+        // Cargar modelo (ajusta la ruta según tu estructura)
+        model = await tf.loadLayersModel('/assets/ml/model.json');
+        
+        // Cargar labels
+        const labelsResp = await fetch('/assets/ml/label_encoder.json');
+        const labelsData = await labelsResp.json();
+        labels = labelsData.classes || labelsData;
+        
+        modelStatus.textContent = `🧠 Modelo: ✅ Listo (${labels.length} clases)`;
+        modelStatus.className = 'status success';
+      } catch (err) {
+        modelStatus.textContent = `🧠 Modelo: ❌ ${err.message}`;
+        modelStatus.className = 'status error';
+        console.error('Model error:', err);
+      }
+    }
+
+    // 3. Capturar frames simulados (dummy data por ahora, sin MediaPipe)
+    function captureFrames() {
+      if (!model) {
+        setTimeout(captureFrames, 500);
+        return;
+      }
+
+      // Frame simulado: 126 valores random [0-1] (cambiarás esto por MediaPipe real)
+      const dummyFrame = Array(126).fill(0).map(() => Math.random());
+      
+      frameBuffer.push(dummyFrame);
+      if (frameBuffer.length > MAX_FRAMES) frameBuffer.shift();
+      
+      bufferStatus.textContent = `📊 Buffer: ${frameBuffer.length}/${MAX_FRAMES}`;
+      bufferStatus.className = frameBuffer.length === MAX_FRAMES ? 'status success' : 'status warning';
+      
+      // Predecir cuando tenemos 24 frames
+      if (frameBuffer.length === MAX_FRAMES && !isProcessing) {
+        predict();
+      }
+      
+      requestAnimationFrame(captureFrames);
+    }
+
+    // 4. Hacer predicción
+    async function predict() {
+      if (!model || frameBuffer.length < MAX_FRAMES || isProcessing) return;
+      
+      isProcessing = true;
+      
+      try {
+        // Crear tensor [1, 24, 126]
+        const input = tf.tensor3d([frameBuffer], [1, MAX_FRAMES, 126]);
+        const output = model.predict(input);
+        const probs = await output.data();
+        
+        // Encontrar clase con mayor probabilidad
+        let maxIdx = 0;
+        let maxVal = probs[0];
+        for (let i = 1; i < probs.length; i++) {
+          if (probs[i] > maxVal) {
+            maxVal = probs[i];
+            maxIdx = i;
+          }
+        }
+        
+        const label = labels[maxIdx] || `Clase ${maxIdx}`;
+        const confidence = (maxVal * 100).toFixed(1);
+        
+        predictionEl.textContent = label;
+        confidenceEl.textContent = `Confianza: ${confidence}%`;
+        
+        // Limpiar tensores
+        input.dispose();
+        output.dispose();
+      } catch (err) {
+        console.error('Prediction error:', err);
+      } finally {
+        isProcessing = false;
+      }
+    }
+
+    // Iniciar todo
+    window.addEventListener('load', () => {
+      startCamera();
+      loadModel();
+    });
+  </script>
+</body>
+</html>

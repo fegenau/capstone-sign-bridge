@@ -22,7 +22,12 @@
       "Bash(npm audit:*)",
       "Bash(npm uninstall:*)",
       "Bash(npm start)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: Arreglar cámara negra cuando modelo TensorFlow.js está activo (CSB-77)\n\n**Problema:** La cámara se renderizaba negra cuando el modelo TensorFlow.js se cargaba.\nEl assetBase relativo (../../assets/ml) no funcionaba en web con Metro bundler.\n\n**Soluciones implementadas:**\n\n1. **metro.config.js:** Configurar Metro para servir estáticamente archivos /assets/ml/\n   - Agrega middleware personalizado para servir model.json y .bin files\n   - Extiende assetExts para incluir .bin files\n\n2. **signMovementClassifier.ts:** Simplificar carga de modelo\n   - En web: usar rutas absolutas `/assets/ml/model.json` (Metro las sirve)\n   - En React Native: mantener bundleResourceIO\n   - Agregar logging para debugging\n\n3. **detection.tsx:** Usar video element en lugar de CameraView para web\n   - CameraView es solo para React Native\n   - Usar HTML5 getUserMedia() en web\n   - Agregar inicialización correcta de streams\n\n**Resultado:**\n✅ Modelo carga correctamente desde /assets/ml/ via Metro\n✅ Cámara renderiza feed de video en vivo\n✅ Overlay de predicción visible sobre la cámara\n✅ Sin cámara negra - feed funcional con modelo activo\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
