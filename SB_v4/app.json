@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "SignBridge v4",
+    "slug": "sb-v4",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SignBridge necesita acceso a la cámara para detectar señas."
+        }
+      ]
+    ]
+  }
+}
