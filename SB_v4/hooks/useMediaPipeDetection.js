@@ -1,6 +1,7 @@
 // Copia adaptada desde sign-Bridge/hooks/useMediaPipeDetection.js
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
+import * as vision from '@mediapipe/tasks-vision';
 
 const FRAME_BUFFER_SIZE = 24;
 const TARGET_FPS = 30;
@@ -134,8 +135,28 @@ export const useMediaPipeDetection = ({
           setIsReady(true);
           return;
         }
-        const vision = await import('@mediapipe/tasks-vision');
-        const filesetResolver = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm');
+        // Usar import estático en lugar de dinámico para evitar problemas con Metro
+        // Intentar múltiples URLs para WASM
+        let filesetResolver;
+        const wasmPaths = [
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm',
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm',
+          '/wasm'  // Fallback local
+        ];
+
+        for (const wasmPath of wasmPaths) {
+          try {
+            filesetResolver = await vision.FilesetResolver.forVisionTasks(wasmPath);
+            console.log('[useMediaPipeDetection] WASM loaded from:', wasmPath);
+            break;
+          } catch (e) {
+            console.warn('[useMediaPipeDetection] Failed to load WASM from:', wasmPath, e.message);
+          }
+        }
+
+        if (!filesetResolver) {
+          throw new Error('No se pudo cargar WASM de MediaPipe');
+        }
         const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
         const options = { baseOptions: { modelAssetPath: MODEL_URL }, runningMode: 'VIDEO', numHands: 2 };
         const handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver, options);

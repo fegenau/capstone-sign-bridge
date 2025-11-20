@@ -12,23 +12,57 @@ import '../utils/tfjs-compat';
 export function useTfjsClassifier({ labelsUrl = '/labels.json', modelUrl = '/model/model.json' } = {}) {
   const [ready, setReady] = useState(false);
   const [labels, setLabels] = useState([]);
+  const [error, setError] = useState(null);
   const modelRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        // Cargar labels
-        const res = await fetch(labelsUrl);
-        const data = await res.json();
-        const classes = Array.isArray(data) ? data : data.classes;
-        if (mounted) setLabels(classes || []);
-        // Cargar modelo
-        const model = await tf.loadLayersModel(modelUrl);
-        modelRef.current = model;
-        if (mounted) setReady(true);
+        // Cargar labels - intenta múltiples rutas
+        let res, data;
+        const labelPaths = [labelsUrl, './labels.json', '../public/labels.json'];
+
+        for (const path of labelPaths) {
+          try {
+            res = await fetch(path);
+            if (res.ok) {
+              data = await res.json();
+              const classes = Array.isArray(data) ? data : data.classes;
+              if (mounted) setLabels(classes || []);
+              break;
+            }
+          } catch (e) {
+            // Continúa con siguiente ruta
+          }
+        }
+
+        // Cargar modelo - intenta múltiples rutas
+        const modelPaths = [modelUrl, './model/model.json', '../public/model/model.json'];
+        let modelLoaded = false;
+
+        for (const path of modelPaths) {
+          try {
+            const model = await tf.loadLayersModel(path);
+            modelRef.current = model;
+            modelLoaded = true;
+            if (mounted) {
+              setReady(true);
+              setError(null);
+            }
+            break;
+          } catch (e) {
+            // Continúa con siguiente ruta
+          }
+        }
+
+        if (!modelLoaded && mounted) {
+          setError('No se pudo cargar el modelo. Verifica que los archivos estén en /public');
+          console.warn('[useTfjsClassifier] No se encontró modelo en ninguna ruta', modelPaths);
+        }
       } catch (e) {
-        console.warn('[useTfjsClassifier] no se pudo cargar modelo/labels aún:', e.message);
+        console.warn('[useTfjsClassifier] Error al cargar:', e.message);
+        if (mounted) setError(e.message);
       }
     })();
     return () => { mounted = false; };
@@ -51,7 +85,7 @@ export function useTfjsClassifier({ labelsUrl = '/labels.json', modelUrl = '/mod
     }
   }, [ready, labels]);
 
-  return { ready, labels, classify };
+  return { ready, labels, classify, error };
 }
 
 export default useTfjsClassifier;

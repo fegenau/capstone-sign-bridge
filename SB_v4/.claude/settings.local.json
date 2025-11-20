@@ -1,15 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)",
-      "Bash(tensorflowjs_converter:*)",
-      "Bash(pip install:*)",
-      "Bash(npm run build:*)",
-      "Bash(npm run clean:*)",
-      "Bash(npm install)",
-      "Bash(timeout 30 npm start)",
-      "Bash(timeout 60 npm start)",
-      "Bash(node test-local.js:*)"
+      "Bash(npm start)",
+      "mcp__ide__getDiagnostics",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(npx expo start:*)",
+      "Bash(node:*)",
+      "Bash(firebase --version:*)",
+      "Bash(firebase projects:list:*)",
+      "Bash(npm install:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase login:*)",
+      "Bash(vercel --version:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
