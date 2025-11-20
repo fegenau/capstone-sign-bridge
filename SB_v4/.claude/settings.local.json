@@ -17,7 +17,13 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(vercel:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npx expo export:*)",
+      "Bash(taskkill:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(cat:*)",
+      "Bash(public \")"
     ],
     "deny": [],
     "ask": []

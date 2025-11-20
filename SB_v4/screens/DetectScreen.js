@@ -91,10 +91,19 @@ export default function DetectScreen({ theme, textScale, ttsEnabled, confidenceT
       const vid = document.createElement('video');
       vid.setAttribute('playsinline', '');
       vid.setAttribute('autoplay', '');
-      vid.muted = true;
+      vid.setAttribute('muted', '');
       vid.style.width = '100%';
+      vid.style.height = '100%';
+      vid.style.objectFit = 'cover';
+      vid.style.transform = 'scaleX(-1)'; // Mirror the video for selfie camera
+      vid.style.display = 'block';
+
+      // Clear previous content and add video
+      videoRef.current.innerHTML = '';
       videoRef.current.appendChild(vid);
       videoRef.current = vid;
+
+      console.log('[DetectScreen] ✅ Video element created and added to DOM');
     }
   }, []);
 
@@ -103,19 +112,37 @@ export default function DetectScreen({ theme, textScale, ttsEnabled, confidenceT
       try {
         console.log('[DetectScreen] 📷 Solicitando acceso a cámara con facingMode:', facingMode);
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode },
+          video: { facingMode: facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
         setCameraStream(stream);
         videoRef.current.srcObject = stream;
+
+        // Wait for video to be ready with actual dimensions
+        await new Promise((resolve) => {
+          const checkReady = () => {
+            if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+              console.log('[DetectScreen] ✅ Video stream ready:', {
+                width: videoRef.current.videoWidth,
+                height: videoRef.current.videoHeight,
+                readyState: videoRef.current.readyState
+              });
+              resolve();
+            } else {
+              setTimeout(checkReady, 50);
+            }
+          };
+          checkReady();
+        });
+
         await videoRef.current.play();
         console.log('[DetectScreen] ✅ Cámara iniciada correctamente');
+        startDetection();
       } catch (err) {
         console.error('[DetectScreen] ❌ Error al acceder a cámara:', err);
         alert('Error al acceder a la cámara: ' + err.message);
       }
     }
-    startDetection();
   };
 
   const toggleCamera = async () => {
