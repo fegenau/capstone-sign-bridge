@@ -33,11 +33,27 @@ export const useMediaPipeDetection = ({
   }, [enableDebug]);
 
   const extractKeypointsFromHand = useCallback((hand) => {
-    if (!hand || !hand.landmarks) return null;
+    if (!hand || !hand.landmarks) {
+      console.log('[MediaPipeDetection] ⚠️ Mano sin landmarks');
+      return null;
+    }
     const keypoints = [];
-    hand.landmarks.forEach((lm) => { keypoints.push(lm.x, lm.y, lm.z || 0); });
+    let validCount = 0;
+    hand.landmarks.forEach((lm, idx) => {
+      if (lm && typeof lm.x === 'number' && typeof lm.y === 'number') {
+        keypoints.push(lm.x, lm.y, lm.z || 0);
+        validCount++;
+      } else {
+        console.warn(`[MediaPipeDetection] ⚠️ Landmark ${idx} inválido:`, lm);
+      }
+    });
+    if (validCount === 0) {
+      console.error('[MediaPipeDetection] ❌ Ningún landmark válido extraído');
+      return null;
+    }
+    _log(`Keypoints extraídos: ${validCount} landmarks, total ${keypoints.length} valores`);
     return keypoints; // 63
-  }, []);
+  }, [_log]);
 
   const combineHandKeypoints = useCallback((leftHand, rightHand) => {
     const combined = new Array(126).fill(0);
@@ -113,8 +129,34 @@ export const useMediaPipeDetection = ({
           hasRightHand: !!rightHand
         });
 
+        // Debug: Verificar si los landmarks tienen datos
+        if (leftHand && leftHand.landmarks && leftHand.landmarks.length > 0) {
+          const firstLM = leftHand.landmarks[0];
+          _log(`Primera mano izquierda landmark:`, {
+            x: firstLM?.x, y: firstLM?.y, z: firstLM?.z,
+            totalLandmarks: leftHand.landmarks.length
+          });
+        }
+        if (rightHand && rightHand.landmarks && rightHand.landmarks.length > 0) {
+          const firstLM = rightHand.landmarks[0];
+          _log(`Primera mano derecha landmark:`, {
+            x: firstLM?.x, y: firstLM?.y, z: firstLM?.z,
+            totalLandmarks: rightHand.landmarks.length
+          });
+        }
+
         const combined = combineHandKeypoints(leftHand, rightHand);
         const normalized = normalizeKeypoints(combined);
+
+        // Verificar valores antes de agregar al buffer
+        const minVal = Math.min(...normalized);
+        const maxVal = Math.max(...normalized);
+        if (minVal > 0 || maxVal > 0) {
+          _log(`✅ Keypoints válidos agregados: min=${minVal.toFixed(3)}, max=${maxVal.toFixed(3)}`);
+        } else {
+          console.warn('[MediaPipeDetection] ⚠️ Todos los keypoints son 0!');
+        }
+
         addFrameToBuffer(normalized);
       } else {
         _log('No se detectaron manos en este frame');
