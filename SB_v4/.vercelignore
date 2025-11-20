@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+.git
+.gitignore
+README.md
+package-lock.json
+yarn.lock
+src
+public
+scripts
+*.md
+.env
+.env.local
