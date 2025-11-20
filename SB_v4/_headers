@@ -1,0 +1,17 @@
+# WASM files
+/wasm/*.wasm
+  Content-Type: application/wasm
+  Access-Control-Allow-Origin: *
+
+/wasm/*.js
+  Content-Type: application/javascript
+  Access-Control-Allow-Origin: *
+
+# All assets
+/*
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+# SPA routing
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
