@@ -4,9 +4,11 @@
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
+    "prebuild": "node scripts/copy-wasm.js",
+    "prestart": "node scripts/copy-wasm.js",
     "start": "npx expo start --web",
     "web": "npx expo start --web",
-    "build": "npx expo export --platform web && node scripts/copy-public.js",
+    "build": "node scripts/copy-wasm.js && npx expo export --platform web && node scripts/copy-public.js",
     "clean": "rimraf dist .expo"
   },
   "dependencies": {
