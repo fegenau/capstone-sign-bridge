@@ -1,4 +1,16 @@
 import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-webgl';
+
+// Initialize WebGL backend for better performance
+(async () => {
+  try {
+    await tf.setBackend('webgl');
+    console.log('[tfjs-compat] WebGL backend initialized');
+  } catch (e) {
+    console.warn('[tfjs-compat] WebGL not available, falling back to CPU:', e.message);
+    await tf.setBackend('cpu');
+  }
+})();
 
 // Some Keras conversions serialize regularizers as class_name 'L2'/'L1'.
 // During inference they are unused, but TFJS still needs the class registered
