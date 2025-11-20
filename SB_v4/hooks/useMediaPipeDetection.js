@@ -127,52 +127,22 @@ export const useMediaPipeDetection = ({
 
       let detectionResult = null;
       if (Platform.OS === 'web') {
-        // Check if video has valid dimensions
+        // Check if video has valid dimensions and is playing
         if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
           _log(`⚠️ Video not ready: width=${video?.videoWidth}, height=${video?.videoHeight}, readyState=${video?.readyState}`);
           return;
         }
 
-        // Initialize canvas on first detection
-        if (!mediaRef.current.canvas && video) {
-          mediaRef.current.canvas = document.createElement('canvas');
-          mediaRef.current.canvas.width = video.videoWidth;
-          mediaRef.current.canvas.height = video.videoHeight;
-          mediaRef.current.ctx = mediaRef.current.canvas.getContext('2d', { willReadFrequently: true });
-          _log(`Canvas initialized: ${video.videoWidth}x${video.videoHeight}`);
+        // Critical: Check if video is ready to read frames
+        if (video.readyState < 2) {
+          // readyState: 0=HAVE_NOTHING, 1=HAVE_METADATA, 2=HAVE_CURRENT_DATA, 3=HAVE_FUTURE_DATA, 4=HAVE_ENOUGH_DATA
+          _log(`⚠️ Video not ready to read: readyState=${video.readyState} (need >= 2)`);
+          return;
         }
 
-        if (mediaRef.current.ctx && video) {
-          // Update canvas dimensions if video dimensions changed
-          if (mediaRef.current.canvas.width !== video.videoWidth ||
-              mediaRef.current.canvas.height !== video.videoHeight) {
-            mediaRef.current.canvas.width = video.videoWidth;
-            mediaRef.current.canvas.height = video.videoHeight;
-            _log(`Canvas resized to: ${video.videoWidth}x${video.videoHeight}`);
-          }
-
-          // Draw video frame to canvas with proper dimensions
-          mediaRef.current.ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-
-          // Verify canvas has content
-          const imageData = mediaRef.current.ctx.getImageData(0, 0, 1, 1);
-          const hasContent = imageData.data.some(val => val > 0);
-          if (!hasContent && !mediaRef.current._warnedBlackCanvas) {
-            mediaRef.current._warnedBlackCanvas = true;
-            console.warn('[MediaPipeDetection] ⚠️ Canvas appears to be completely black - video may not be rendering properly');
-            console.warn('[MediaPipeDetection] Debug info:', {
-              videoWidth: video.videoWidth,
-              videoHeight: video.videoHeight,
-              videoReadyState: video.readyState,
-              videoCurrentTime: video.currentTime,
-              canvasWidth: mediaRef.current.canvas.width,
-              canvasHeight: mediaRef.current.canvas.height,
-              samplePixel: `RGBA(${imageData.data[0]},${imageData.data[1]},${imageData.data[2]},${imageData.data[3]})`
-            });
-          }
-
-          detectionResult = await mediaRef.current.handDetector.detectForVideo(mediaRef.current.canvas, now);
-        }
+        // Pass video element DIRECTLY to MediaPipe (not canvas)
+        // MediaPipe can read frames directly from video elements on web
+        detectionResult = await mediaRef.current.handDetector.detectForVideo(video, now);
       } else {
         detectionResult = await mediaRef.current.handDetector.detectForVideo(video, now);
       }
