@@ -136,12 +136,12 @@ export const useMediaPipeDetection = ({
           return;
         }
         // Usar import estático en lugar de dinámico para evitar problemas con Metro
-        // Intentar múltiples URLs para WASM
+        // Intentar múltiples URLs para WASM - Local primero, luego CDN como fallback
         let filesetResolver;
         const wasmPaths = [
+          '/wasm',  // Local - Intenta primero
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm',
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm',
-          '/wasm'  // Fallback local
         ];
 
         for (const wasmPath of wasmPaths) {
