@@ -33,26 +33,56 @@ export const useMediaPipeDetection = ({
   }, [enableDebug]);
 
   const extractKeypointsFromHand = useCallback((hand) => {
-    if (!hand || !hand.landmarks) {
-      console.log('[MediaPipeDetection] ⚠️ Mano sin landmarks');
+    // MediaPipe HandLandmarker returns: landmarks is NormalizedLandmark[][]
+    // Each hand is an array of 21 NormalizedLandmark objects
+    // Each landmark has: { x: number, y: number, z: number, visibility?: number }
+
+    if (!hand) {
+      _log('⚠️ Hand is null/undefined');
       return null;
     }
+
+    let landmarks = null;
+
+    // Case 1: hand is the array of landmarks directly (most common with MediaPipe)
+    if (Array.isArray(hand)) {
+      landmarks = hand;
+    }
+    // Case 2: hand is a wrapped object with .landmarks property
+    else if (hand.landmarks && Array.isArray(hand.landmarks)) {
+      landmarks = hand.landmarks;
+    }
+
+    if (!landmarks || landmarks.length === 0) {
+      _log('⚠️ No landmarks found or landmarks array is empty');
+      return null;
+    }
+
     const keypoints = [];
     let validCount = 0;
-    hand.landmarks.forEach((lm, idx) => {
+
+    // Extract all 21 landmarks
+    for (let idx = 0; idx < landmarks.length; idx++) {
+      const lm = landmarks[idx];
+
+      // Check if landmark has valid x, y coordinates
       if (lm && typeof lm.x === 'number' && typeof lm.y === 'number') {
-        keypoints.push(lm.x, lm.y, lm.z || 0);
+        const x = lm.x;  // Already a number, no need for parseFloat
+        const y = lm.y;
+        const z = (typeof lm.z === 'number') ? lm.z : 0;
+
+        keypoints.push(x, y, z);
         validCount++;
-      } else {
-        console.warn(`[MediaPipeDetection] ⚠️ Landmark ${idx} inválido:`, lm);
       }
-    });
+    }
+
     if (validCount === 0) {
-      console.error('[MediaPipeDetection] ❌ Ningún landmark válido extraído');
+      console.warn('[MediaPipeDetection] ❌ No valid landmarks extracted from hand. First landmark structure:', lm);
       return null;
     }
-    _log(`Keypoints extraídos: ${validCount} landmarks, total ${keypoints.length} valores`);
-    return keypoints; // 63
+
+    _log(`✅ Extracted ${validCount}/21 landmarks, total ${keypoints.length} coordinate values`);
+    return keypoints; // 63 values (21 landmarks × 3 coords)
   }, [_log]);
 
   const combineHandKeypoints = useCallback((leftHand, rightHand) => {
@@ -114,6 +144,7 @@ export const useMediaPipeDetection = ({
       if (detectionResult && detectionResult.landmarks) {
         const hands = detectionResult.landmarks;
         let leftHand = null; let rightHand = null;
+
         if (detectionResult.handedness && Array.isArray(detectionResult.handedness)) {
           detectionResult.handedness.forEach((h, idx) => {
             if (h[0].categoryName === 'Left') leftHand = hands[idx];
@@ -129,19 +160,20 @@ export const useMediaPipeDetection = ({
           hasRightHand: !!rightHand
         });
 
-        // Debug: Verificar si los landmarks tienen datos
-        if (leftHand && leftHand.landmarks && leftHand.landmarks.length > 0) {
-          const firstLM = leftHand.landmarks[0];
-          _log(`Primera mano izquierda landmark:`, {
-            x: firstLM?.x, y: firstLM?.y, z: firstLM?.z,
-            totalLandmarks: leftHand.landmarks.length
-          });
-        }
-        if (rightHand && rightHand.landmarks && rightHand.landmarks.length > 0) {
-          const firstLM = rightHand.landmarks[0];
-          _log(`Primera mano derecha landmark:`, {
-            x: firstLM?.x, y: firstLM?.y, z: firstLM?.z,
-            totalLandmarks: rightHand.landmarks.length
+        // Debug una sola vez - Ver estructura REAL del resultado
+        if (hands.length > 0 && !mediaRef.current._debugLogged) {
+          mediaRef.current._debugLogged = true;
+          const firstHand = hands[0];
+          const isArray = Array.isArray(firstHand);
+          const firstLandmark = isArray ? firstHand[0] : null;
+          console.log('[MediaPipeDetection] 🔍 MediaPipe Detection Structure:', {
+            detectionResultKeys: Object.keys(detectionResult),
+            handsCount: hands.length,
+            firstHandIsArray: isArray,
+            firstHandLength: isArray ? firstHand.length : 'N/A',
+            firstLandmarkKeys: firstLandmark ? Object.keys(firstLandmark) : 'N/A',
+            firstLandmarkValues: firstLandmark ? { x: firstLandmark.x, y: firstLandmark.y, z: firstLandmark.z, visibility: firstLandmark.visibility } : 'N/A',
+            firstHandJSON: JSON.stringify(firstHand).substring(0, 300)
           });
         }
 
@@ -217,8 +249,16 @@ export const useMediaPipeDetection = ({
           throw new Error('No se pudo cargar WASM de MediaPipe');
         }
         const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
-        const options = { baseOptions: { modelAssetPath: MODEL_URL }, runningMode: 'VIDEO', numHands: 2 };
+        const options = {
+          baseOptions: { modelAssetPath: MODEL_URL },
+          runningMode: 'VIDEO',
+          numHands: 2,
+          minHandDetectionConfidence: 0.3,  // Lower threshold for better detection
+          minHandPresenceConfidence: 0.3,
+          minTrackingConfidence: 0.3
+        };
         const handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver, options);
+        console.log('[useMediaPipeDetection] ✅ HandLandmarker initialized with options:', options);
         mediaRef.current.handDetector = handLandmarker;
         mediaRef.current.isInitialized = true;
         setIsReady(true);
