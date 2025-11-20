@@ -60,7 +60,13 @@ export const useMediaPipeDetection = ({
   const addFrameToBuffer = useCallback((kps) => {
     if (mediaRef.current.frameBuffer.length >= FRAME_BUFFER_SIZE) mediaRef.current.frameBuffer.shift();
     mediaRef.current.frameBuffer.push(kps);
+
     if (mediaRef.current.frameBuffer.length === FRAME_BUFFER_SIZE && onKeypointsReady) {
+      console.log('[useMediaPipeDetection] ✅ Buffer completo (24 frames). Keypoints promedio:', {
+        minValue: Math.min(...mediaRef.current.frameBuffer.flat()),
+        maxValue: Math.max(...mediaRef.current.frameBuffer.flat()),
+        avgValue: (mediaRef.current.frameBuffer.flat().reduce((a, b) => a + b, 0) / (24 * 126)).toFixed(3)
+      });
       onKeypointsReady(mediaRef.current.frameBuffer);
     }
     if (onFrameKeypoints) { try { onFrameKeypoints(kps); } catch(e) {} }
@@ -98,12 +104,23 @@ export const useMediaPipeDetection = ({
             else if (h[0].categoryName === 'Right') rightHand = hands[idx];
           });
         }
+
+        // Log de manos detectadas
+        const handsDetected = `${leftHand ? 'L' : '-'}${rightHand ? 'R' : '-'}`;
+        _log(`Manos detectadas: ${handsDetected}`, {
+          handCount: hands.length,
+          hasLeftHand: !!leftHand,
+          hasRightHand: !!rightHand
+        });
+
         const combined = combineHandKeypoints(leftHand, rightHand);
         const normalized = normalizeKeypoints(combined);
         addFrameToBuffer(normalized);
+      } else {
+        _log('No se detectaron manos en este frame');
       }
     } catch (err) {
-      console.error('[useMediaPipeDetection] detect error:', err);
+      console.error('[useMediaPipeDetection] ❌ Error en detección:', err);
       setError(err.message);
       onError && onError(err);
     }

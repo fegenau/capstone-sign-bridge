@@ -97,6 +97,16 @@ export function useTfjsClassifier({ labelsUrl = '/labels.json', modelUrl = '/mod
       const probs = await logits.softmax().data();
       console.log('[useTfjsClassifier] Softmax completado. Total de clases:', probs.length);
 
+      // Analizar distribución de confianzas
+      const probArray = Array.from(probs);
+      const stats = {
+        max: Math.max(...probArray),
+        min: Math.min(...probArray),
+        avg: (probArray.reduce((a, b) => a + b, 0) / probArray.length).toFixed(4),
+        sum: probArray.reduce((a, b) => a + b, 0).toFixed(4)
+      };
+      console.log('[useTfjsClassifier] 📊 Estadísticas de confianza:', stats);
+
       input.dispose();
       if (logits.dispose) logits.dispose();
 
@@ -104,7 +114,7 @@ export function useTfjsClassifier({ labelsUrl = '/labels.json', modelUrl = '/mod
       let bestP = 0;
       const topPredictions = [];
 
-      probs.forEach((p, i) => {
+      probArray.forEach((p, i) => {
         topPredictions.push({ idx: i, confidence: p });
         if (p > bestP) {
           bestP = p;
@@ -112,16 +122,17 @@ export function useTfjsClassifier({ labelsUrl = '/labels.json', modelUrl = '/mod
         }
       });
 
-      // Obtener top 3 predicciones para debug
+      // Obtener top 5 predicciones para debug
       topPredictions.sort((a, b) => b.confidence - a.confidence);
-      const top3 = topPredictions.slice(0, 3);
+      const top5 = topPredictions.slice(0, 5);
 
       const label = labels[bestI] || `Clase ${bestI}`;
-      console.log('[useTfjsClassifier] ✅ Top 3 predicciones:', top3.map(p => ({
+      console.log('[useTfjsClassifier] ✅ Top 5 predicciones:', top5.map(p => ({
         label: labels[p.idx] || `Clase ${p.idx}`,
-        confidence: (p.confidence * 100).toFixed(2) + '%'
+        confidence: (p.confidence * 100).toFixed(2) + '%',
+        idx: p.idx
       })));
-      console.log('[useTfjsClassifier] 🎯 Predicción final:', { label, confidence: (bestP * 100).toFixed(2) + '%' });
+      console.log('[useTfjsClassifier] 🎯 Predicción final:', { label, confidence: (bestP * 100).toFixed(2) + '%', idx: bestI });
 
       return { label, confidence: bestP };
     } catch (e) {
