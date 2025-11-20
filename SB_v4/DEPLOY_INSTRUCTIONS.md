@@ -90,8 +90,10 @@ dist/
 
 **OPCIÓN 1 (Netlify Drop)** es la más rápida:
 1. Abre https://app.netlify.com/drop
-2. Arrastra `SB_v4/dist`
-3. ¡Done! Tendrás un link public en segundos
+2. Arrastra la carpeta `SB_v4/dist` (o sus contenidos)
+3. ¡Done! Tendrás un link público en 30 segundos - SIN REGISTRO
+
+**✅ VERIFICADO:** La carpeta dist tiene todos los archivos necesarios y funciona correctamente en localhost:3000
 
 **Luego** puedes conectar tu repo a Netlify para CI/CD automático.
 
