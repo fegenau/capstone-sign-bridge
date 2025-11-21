@@ -113,7 +113,12 @@ export const useMediaPipeDetection = ({
         maxValue: Math.max(...mediaRef.current.frameBuffer.flat()),
         avgValue: (mediaRef.current.frameBuffer.flat().reduce((a, b) => a + b, 0) / (24 * 126)).toFixed(3)
       });
-      onKeypointsReady(mediaRef.current.frameBuffer);
+      // CRITICAL: Make a copy of the buffer before clearing it
+      const bufferCopy = [...mediaRef.current.frameBuffer];
+      // Clear buffer for next sequence - IMPORTANT!
+      mediaRef.current.frameBuffer = [];
+      // Send the completed buffer to parent component
+      onKeypointsReady(bufferCopy);
     }
     if (onFrameKeypoints) { try { onFrameKeypoints(kps); } catch(e) {} }
   }, [onKeypointsReady, onFrameKeypoints]);

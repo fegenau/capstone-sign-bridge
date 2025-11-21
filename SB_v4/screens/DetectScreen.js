@@ -38,7 +38,9 @@ export default function DetectScreen({ theme, textScale, ttsEnabled, confidenceT
 
   useEffect(() => {
     let active = true;
+    console.log('[DetectScreen] 📦 State sequence:', { length: sequence?.length, modelReady });
     if (sequence && sequence.length === 24) {
+      console.log('[DetectScreen] ✅ Buffer completo! Iniciando clasificación...');
       (async () => {
         try {
           console.log('[DetectScreen] 📊 Iniciando clasificación de secuencia...');
@@ -61,6 +63,7 @@ export default function DetectScreen({ theme, textScale, ttsEnabled, confidenceT
               confidence: smoothedPred.confidence,
               isStable: smoothedPred.isStable
             });
+            console.log('[DetectScreen] 🎨 Actualizando pred state con:', smoothedPred);
             setPred(smoothedPred);
 
             // Only speak if stable and above threshold
@@ -68,9 +71,15 @@ export default function DetectScreen({ theme, textScale, ttsEnabled, confidenceT
               console.log('[DetectScreen] 🔊 Reproduciendo TTS para:', smoothedPred.label);
               speakDebouncedRef.current(smoothedPred.label);
             }
+
+            // IMPORTANT: Clear sequence for next classification
+            console.log('[DetectScreen] 🔄 Reiniciando secuencia para próxima predicción');
+            setSequence([]);
           }
         } catch (err) {
           console.error('[DetectScreen] ❌ Error durante clasificación:', err);
+          // Also clear sequence on error
+          setSequence([]);
         }
       })();
     }
