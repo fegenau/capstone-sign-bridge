@@ -1,344 +1,340 @@
-// Copia adaptada desde sign-Bridge/hooks/useMediaPipeDetection.js
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Platform, Alert } from 'react-native';
-import * as vision from '@mediapipe/tasks-vision';
+import { Hands, HAND_CONNECTIONS } from '@mediapipe/hands';
+import { Camera } from '@mediapipe/camera_utils';
+import * as drawingUtils from '@mediapipe/drawing_utils';
 
-const FRAME_BUFFER_SIZE = 24;
-const TARGET_FPS = 30;
-const FRAME_INTERVAL = 1000 / TARGET_FPS;
-
-export const useMediaPipeDetection = ({
-  videoRef = null,
-  onKeypointsReady = null,
-  onFrameKeypoints = null,
-  onError = null,
-  enableDebug = false,
+const useMediaPipeDetection = ({ 
+  isActive, 
+  onHandDetection, 
+  debug = false,
+  minDetectionConfidence = 0.3, // Bajamos el umbral para mejor detección
+  minTrackingConfidence = 0.3,   // Bajamos el umbral de tracking
 }) => {
-  const [isReady, setIsReady] = useState(false);
-  const [isDetecting, setIsDetecting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [handCount, setHandCount] = useState(0);
+  const [processedFrames, setProcessedFrames] = useState(0);
+  const [lastProcessTime, setLastProcessTime] = useState(0);
+  
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const handsRef = useRef(null);
+  const cameraRef = useRef(null);
+  const isProcessingRef = useRef(false);
+  const frameCountRef = useRef(0);
+  const lastValidLandmarksRef = useRef(null);
 
-  const mediaRef = useRef({
-    handDetector: null,
-    frameBuffer: [],
-    lastFrameTime: 0,
-    isInitialized: false,
-    animationId: null,
-    canvas: null,
-    ctx: null,
-  });
-
-  const _log = useCallback((message, data = null) => {
-    if (enableDebug) console.log(`[MediaPipeDetection] ${message}`, data || '');
-  }, [enableDebug]);
-
-  const extractKeypointsFromHand = useCallback((hand) => {
-    // MediaPipe HandLandmarker returns: landmarks is NormalizedLandmark[][]
-    // Each hand is an array of 21 NormalizedLandmark objects
-    // Each landmark has: { x: number, y: number, z: number, visibility?: number }
-
-    if (!hand) {
-      _log('⚠️ Hand is null/undefined');
-      return null;
-    }
-
-    let landmarks = null;
-
-    // Case 1: hand is the array of landmarks directly (most common with MediaPipe)
-    if (Array.isArray(hand)) {
-      landmarks = hand;
-    }
-    // Case 2: hand is a wrapped object with .landmarks property
-    else if (hand.landmarks && Array.isArray(hand.landmarks)) {
-      landmarks = hand.landmarks;
-    }
-
+  // Función mejorada para extraer keypoints con validación
+  const extractKeypoints = useCallback((landmarks) => {
     if (!landmarks || landmarks.length === 0) {
-      _log('⚠️ No landmarks found or landmarks array is empty');
+      console.warn('[MediaPipe] No landmarks detectados');
       return null;
     }
 
-    const keypoints = [];
-    let validCount = 0;
-
-    // Extract all 21 landmarks
-    for (let idx = 0; idx < landmarks.length; idx++) {
-      const lm = landmarks[idx];
-
-      // Check if landmark has valid x, y coordinates
-      if (lm && typeof lm.x === 'number' && typeof lm.y === 'number') {
-        const x = lm.x;  // Already a number, no need for parseFloat
-        const y = lm.y;
-        const z = (typeof lm.z === 'number') ? lm.z : 0;
-
-        keypoints.push(x, y, z);
-        validCount++;
-      }
-    }
-
-    if (validCount === 0) {
-      console.warn('[MediaPipeDetection] ❌ No valid landmarks extracted from hand. First landmark structure:', lm);
-      return null;
-    }
-
-    _log(`✅ Extracted ${validCount}/21 landmarks, total ${keypoints.length} coordinate values`);
-    return keypoints; // 63 values (21 landmarks × 3 coords)
-  }, [_log]);
-
-  const combineHandKeypoints = useCallback((leftHand, rightHand) => {
-    const combined = new Array(126).fill(0);
-    if (leftHand) {
-      const l = extractKeypointsFromHand(leftHand);
-      if (l) l.forEach((v, i) => { combined[i] = v; });
-    }
-    if (rightHand) {
-      const r = extractKeypointsFromHand(rightHand);
-      if (r) r.forEach((v, i) => { combined[63 + i] = v; });
-    }
-    return combined;
-  }, [extractKeypointsFromHand]);
-
-  const normalizeKeypoints = useCallback((kps) => {
-    if (!kps) return null;
-    return kps.map((v) => Math.max(0, Math.min(1, v)));
-  }, []);
-
-  const addFrameToBuffer = useCallback((kps) => {
-    if (mediaRef.current.frameBuffer.length >= FRAME_BUFFER_SIZE) mediaRef.current.frameBuffer.shift();
-    mediaRef.current.frameBuffer.push(kps);
-
-    if (mediaRef.current.frameBuffer.length === FRAME_BUFFER_SIZE && onKeypointsReady) {
-      console.log('[useMediaPipeDetection] ✅ Buffer completo (24 frames). Keypoints promedio:', {
-        minValue: Math.min(...mediaRef.current.frameBuffer.flat()),
-        maxValue: Math.max(...mediaRef.current.frameBuffer.flat()),
-        avgValue: (mediaRef.current.frameBuffer.flat().reduce((a, b) => a + b, 0) / (24 * 126)).toFixed(3)
-      });
-      // CRITICAL: Make a copy of the buffer before clearing it
-      const bufferCopy = [...mediaRef.current.frameBuffer];
-      // Clear buffer for next sequence - IMPORTANT!
-      mediaRef.current.frameBuffer = [];
-      // Send the completed buffer to parent component
-      onKeypointsReady(bufferCopy);
-    }
-    if (onFrameKeypoints) { try { onFrameKeypoints(kps); } catch(e) {} }
-  }, [onKeypointsReady, onFrameKeypoints]);
-
-  const detectHands = useCallback(async (video) => {
-    if (!mediaRef.current.handDetector) {
-      console.log('[useMediaPipeDetection] ⚠️ No handDetector available yet');
-      return;
-    }
     try {
-      const now = Date.now();
-      if (now - mediaRef.current.lastFrameTime < FRAME_INTERVAL) return;
-      mediaRef.current.lastFrameTime = now;
+      // Extraer los 63 valores (21 landmarks x 3 coordenadas)
+      const keypoints = landmarks.flatMap(landmark => [
+        landmark.x || 0,
+        landmark.y || 0,
+        landmark.z || 0
+      ]);
 
-      let detectionResult = null;
-      if (Platform.OS === 'web') {
-        // Check if video has valid dimensions and is playing
-        if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-          console.warn('[useMediaPipeDetection] ⚠️ Video not ready: width=' + video?.videoWidth + ', height=' + video?.videoHeight + ', readyState=' + video?.readyState);
-          return;
-        }
-
-        // Critical: Check if video is ready to read frames
-        if (video.readyState < 2) {
-          // readyState: 0=HAVE_NOTHING, 1=HAVE_METADATA, 2=HAVE_CURRENT_DATA, 3=HAVE_FUTURE_DATA, 4=HAVE_ENOUGH_DATA
-          _log(`⚠️ Video not ready to read: readyState=${video.readyState} (need >= 2)`);
-          return;
-        }
-
-        // Pass video element DIRECTLY to MediaPipe (not canvas)
-        // MediaPipe can read frames directly from video elements on web
-        detectionResult = await mediaRef.current.handDetector.detectForVideo(video, now);
-      } else {
-        detectionResult = await mediaRef.current.handDetector.detectForVideo(video, now);
+      // Validar que tenemos exactamente 63 valores
+      if (keypoints.length !== 63) {
+        console.error('[MediaPipe] Keypoints incorrectos:', keypoints.length);
+        return null;
       }
 
-      if (detectionResult && detectionResult.landmarks) {
-        const hands = detectionResult.landmarks;
-        let leftHand = null; let rightHand = null;
+      // Verificar que no todos los valores sean 0
+      const hasValidData = keypoints.some(val => val !== 0 && !isNaN(val));
+      
+      if (!hasValidData) {
+        console.warn('[MediaPipe] Todos los keypoints son 0 o NaN');
+        return null;
+      }
 
-        if (detectionResult.handedness && Array.isArray(detectionResult.handedness)) {
-          detectionResult.handedness.forEach((h, idx) => {
-            if (h[0].categoryName === 'Left') leftHand = hands[idx];
-            else if (h[0].categoryName === 'Right') rightHand = hands[idx];
-          });
-        }
+      // Normalizar los valores para el modelo
+      const normalizedKeypoints = keypoints.map(val => {
+        if (isNaN(val)) return 0;
+        // Clamp valores entre 0 y 1
+        return Math.max(0, Math.min(1, val));
+      });
 
-        // Log de manos detectadas
-        const handsDetected = `${leftHand ? 'L' : '-'}${rightHand ? 'R' : '-'}`;
-        _log(`Manos detectadas: ${handsDetected}`, {
-          handCount: hands.length,
-          hasLeftHand: !!leftHand,
-          hasRightHand: !!rightHand
+      if (debug) {
+        console.log('[MediaPipe] Keypoints extraídos:', {
+          original: keypoints.slice(0, 6),
+          normalized: normalizedKeypoints.slice(0, 6),
+          hasValidData
         });
+      }
 
-        // Debug una sola vez - Ver estructura REAL del resultado
-        if (hands.length > 0 && !mediaRef.current._debugLogged) {
-          mediaRef.current._debugLogged = true;
-          const firstHand = hands[0];
-          const isArray = Array.isArray(firstHand);
-          const firstLandmark = isArray ? firstHand[0] : null;
-          console.log('[MediaPipeDetection] 🔍 MediaPipe Detection Structure:', {
-            detectionResultKeys: Object.keys(detectionResult),
-            handsCount: hands.length,
-            firstHandIsArray: isArray,
-            firstHandLength: isArray ? firstHand.length : 'N/A',
-            firstLandmarkKeys: firstLandmark ? Object.keys(firstLandmark) : 'N/A',
-            firstLandmarkValues: firstLandmark ? { x: firstLandmark.x, y: firstLandmark.y, z: firstLandmark.z, visibility: firstLandmark.visibility } : 'N/A',
-            firstHandJSON: JSON.stringify(firstHand).substring(0, 300)
+      return normalizedKeypoints;
+    } catch (error) {
+      console.error('[MediaPipe] Error extrayendo keypoints:', error);
+      return null;
+    }
+  }, [debug]);
+
+  // Función para procesar resultados con mejor manejo
+  const onResults = useCallback((results) => {
+    if (!canvasRef.current || !results) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    // Limpiar canvas
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar la imagen del video
+    if (results.image) {
+      ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+    }
+
+    // Procesar manos detectadas
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      setHandCount(results.multiHandLandmarks.length);
+      
+      // Dibujar las manos
+      for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+        const landmarks = results.multiHandLandmarks[i];
+        const handedness = results.multiHandedness?.[i];
+
+        // Dibujar conexiones
+        drawingUtils.drawConnectors(
+          ctx, 
+          landmarks, 
+          HAND_CONNECTIONS,
+          { color: '#00FF00', lineWidth: 3 }
+        );
+
+        // Dibujar landmarks
+        drawingUtils.drawLandmarks(
+          ctx, 
+          landmarks,
+          { 
+            color: handedness?.label === 'Left' ? '#FF0000' : '#0000FF', 
+            lineWidth: 1,
+            radius: 5
+          }
+        );
+
+        // Extraer y validar keypoints
+        const keypoints = extractKeypoints(landmarks);
+        
+        if (keypoints && onHandDetection) {
+          // Guardar últimos landmarks válidos
+          lastValidLandmarksRef.current = keypoints;
+          
+          // Enviar keypoints al clasificador
+          onHandDetection({
+            keypoints,
+            handedness: handedness?.label || 'Unknown',
+            confidence: handedness?.score || 0,
+            timestamp: Date.now(),
+            frameNumber: frameCountRef.current
           });
-        }
 
-        const combined = combineHandKeypoints(leftHand, rightHand);
-        const normalized = normalizeKeypoints(combined);
-
-        // Verificar valores antes de agregar al buffer
-        const minVal = Math.min(...normalized);
-        const maxVal = Math.max(...normalized);
-        if (minVal > 0 || maxVal > 0) {
-          _log(`✅ Keypoints válidos agregados: min=${minVal.toFixed(3)}, max=${maxVal.toFixed(3)}`);
-        } else {
-          console.warn('[MediaPipeDetection] ⚠️ Todos los keypoints son 0!');
-        }
-
-        addFrameToBuffer(normalized);
-      } else {
-        _log('No se detectaron manos en este frame');
-      }
-    } catch (err) {
-      console.error('[useMediaPipeDetection] ❌ Error en detección:', err);
-      setError(err.message);
-      onError && onError(err);
-    }
-  }, [combineHandKeypoints, normalizeKeypoints, addFrameToBuffer, onError]);
-
-  const startDetectionLoop = useCallback(() => {
-    console.log('[useMediaPipeDetection] startDetectionLoop called', { videoRefExists: !!videoRef, videoRefCurrent: !!videoRef?.current });
-    if (!videoRef || !videoRef.current) {
-      console.warn('[useMediaPipeDetection] ⚠️ No video ref available');
-      return;
-    }
-    const video = videoRef.current;
-    console.log('[useMediaPipeDetection] ✅ Starting detection loop with video:', { videoWidth: video.videoWidth, videoHeight: video.videoHeight });
-    const loop = async () => {
-      if (isDetecting) {
-        await detectHands(video);
-        mediaRef.current.animationId = requestAnimationFrame(loop);
-      }
-    };
-    mediaRef.current.animationId = requestAnimationFrame(loop);
-  }, [videoRef, isDetecting, detectHands]);
-
-  const stopDetectionLoop = useCallback(() => {
-    if (mediaRef.current.animationId) cancelAnimationFrame(mediaRef.current.animationId);
-    mediaRef.current.animationId = null;
-  }, []);
-
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        if (Platform.OS !== 'web') {
-          mediaRef.current.handDetector = createDummyDetector();
-          mediaRef.current.isInitialized = true;
-          setIsReady(true);
-          return;
-        }
-        // Usar import estático en lugar de dinámico para evitar problemas con Metro
-        // Intentar múltiples URLs para WASM - Local primero, luego CDN como fallback
-        let filesetResolver;
-        const wasmPaths = [
-          '/wasm',  // Local - Intenta primero
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm',
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm',
-        ];
-
-        for (const wasmPath of wasmPaths) {
-          try {
-            filesetResolver = await vision.FilesetResolver.forVisionTasks(wasmPath);
-            console.log('[useMediaPipeDetection] WASM loaded from:', wasmPath);
-            break;
-          } catch (e) {
-            console.warn('[useMediaPipeDetection] Failed to load WASM from:', wasmPath, e.message);
+          if (debug) {
+            console.log('[MediaPipe] Mano detectada:', {
+              mano: handedness?.label,
+              confianza: handedness?.score,
+              frame: frameCountRef.current
+            });
           }
         }
-
-        if (!filesetResolver) {
-          throw new Error('No se pudo cargar WASM de MediaPipe');
+      }
+    } else {
+      setHandCount(0);
+      
+      // Si no hay detección, intentar con los últimos landmarks válidos
+      if (lastValidLandmarksRef.current && frameCountRef.current % 30 === 0) {
+        if (debug) {
+          console.log('[MediaPipe] Sin detección, usando último frame válido');
         }
-        const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
-        const options = {
-          baseOptions: { modelAssetPath: MODEL_URL },
-          runningMode: 'VIDEO',
-          numHands: 2,
-          minHandDetectionConfidence: 0.3,  // Lower threshold for better detection
-          minHandPresenceConfidence: 0.3,
-          minTrackingConfidence: 0.3
-        };
-        const handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver, options);
-        console.log('[useMediaPipeDetection] ✅ HandLandmarker initialized with options:', options);
-        mediaRef.current.handDetector = handLandmarker;
-        mediaRef.current.isInitialized = true;
-        setIsReady(true);
+      }
+    }
+
+    ctx.restore();
+    
+    // Actualizar contador de frames
+    frameCountRef.current++;
+    if (frameCountRef.current % 30 === 0) {
+      setProcessedFrames(frameCountRef.current);
+      const now = Date.now();
+      if (lastProcessTime > 0) {
+        const fps = 30000 / (now - lastProcessTime);
+        if (debug) {
+          console.log(`[MediaPipe] FPS: ${fps.toFixed(1)}`);
+        }
+      }
+      setLastProcessTime(now);
+    }
+    
+    isProcessingRef.current = false;
+  }, [onHandDetection, extractKeypoints, debug]);
+
+  // Inicializar MediaPipe Hands con configuración optimizada
+  useEffect(() => {
+    if (!isActive) return;
+
+    const initializeMediaPipe = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Crear instancia de Hands con configuración optimizada
+        const hands = new Hands({
+          locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+          }
+        });
+
+        // Configurar opciones optimizadas para web
+        hands.setOptions({
+          maxNumHands: 2,
+          modelComplexity: 1, // Modelo balanceado
+          minDetectionConfidence: minDetectionConfidence,
+          minTrackingConfidence: minTrackingConfidence,
+          selfieMode: true, // Para cámara frontal
+        });
+
+        hands.onResults(onResults);
+        handsRef.current = hands;
+
+        console.log('[MediaPipe] ✅ Hands inicializado correctamente');
+
+        // Esperar a que el video esté listo
+        const video = videoRef.current;
+        if (video && video.readyState >= 2) {
+          startCamera();
+        } else if (video) {
+          video.addEventListener('loadeddata', startCamera);
+        }
+
+        setIsLoading(false);
       } catch (err) {
-        console.error('[useMediaPipeDetection] init error:', err);
-        mediaRef.current.handDetector = createDummyDetector();
-        mediaRef.current.isInitialized = true;
-        setIsReady(true);
+        console.error('[MediaPipe] Error inicializando:', err);
+        setError(err.message);
+        setIsLoading(false);
       }
     };
-    if (!mediaRef.current.isInitialized) initialize();
-    return () => { if (mediaRef.current.animationId) cancelAnimationFrame(mediaRef.current.animationId); };
-  }, []);
 
-  const startDetection = useCallback(async () => {
-    console.log('[useMediaPipeDetection] startDetection called, isReady:', isReady);
-    if (!isReady) {
-      console.warn('[useMediaPipeDetection] ⚠️ MediaPipe no está listo');
-      Alert.alert('Error', 'MediaPipe aún no está listo');
-      return;
-    }
-    try {
-      console.log('[useMediaPipeDetection] ✅ Starting detection, setting isDetecting=true');
-      setIsDetecting(true);
-      mediaRef.current.frameBuffer = [];
-      startDetectionLoop();
-    } catch (err) {
-      console.error('[useMediaPipeDetection] start error:', err);
-      setError(err.message);
-      setIsDetecting(false);
-      onError && onError(err);
-    }
-  }, [isReady, startDetectionLoop, onError]);
+    const startCamera = async () => {
+      if (!handsRef.current || !videoRef.current) return;
 
-  const stopDetection = useCallback(() => {
-    setIsDetecting(false);
-    stopDetectionLoop();
-    mediaRef.current.frameBuffer = [];
-  }, [stopDetectionLoop]);
+      try {
+        const camera = new Camera(videoRef.current, {
+          onFrame: async () => {
+            if (!isProcessingRef.current && handsRef.current && videoRef.current) {
+              isProcessingRef.current = true;
+              
+              // Asegurarse de que el video tiene dimensiones válidas
+              if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+                await handsRef.current.send({ image: videoRef.current });
+              } else {
+                isProcessingRef.current = false;
+              }
+            }
+          },
+          width: 640,
+          height: 480,
+          facingMode: 'user'
+        });
 
-  const getFrameBuffer = useCallback(() => ([...mediaRef.current.frameBuffer]), []);
-  const getStatus = useCallback(() => ({ isReady, isDetecting, bufferSize: mediaRef.current.frameBuffer.length, error }), [isReady, isDetecting, error]);
-
-  return { isReady, isDetecting, error, startDetection, stopDetection, getFrameBuffer, getStatus, _mediaRef: mediaRef };
-};
-
-function createDummyDetector() {
-  return {
-    detectForVideo: async () => {
-      if (Math.random() > 0.3) {
-        return {
-          landmarks: [
-            Array(21).fill(0).map(() => ({ x: Math.random(), y: Math.random(), z: Math.random() * 0.3 })),
-            Array(21).fill(0).map(() => ({ x: Math.random(), y: Math.random(), z: Math.random() * 0.3 })),
-          ],
-          handedness: [[{ categoryName: 'Left' }],[{ categoryName: 'Right' }]],
-        };
+        await camera.start();
+        cameraRef.current = camera;
+        
+        console.log('[MediaPipe] ✅ Cámara iniciada correctamente');
+      } catch (err) {
+        console.error('[MediaPipe] Error iniciando cámara:', err);
+        setError('Error al acceder a la cámara: ' + err.message);
       }
-      return null;
-    },
+    };
+
+    initializeMediaPipe();
+
+    // Cleanup
+    return () => {
+      if (cameraRef.current) {
+        cameraRef.current.stop();
+        cameraRef.current = null;
+      }
+      if (handsRef.current) {
+        handsRef.current.close();
+        handsRef.current = null;
+      }
+      frameCountRef.current = 0;
+      lastValidLandmarksRef.current = null;
+    };
+  }, [isActive, onResults, minDetectionConfidence, minTrackingConfidence]);
+
+  // Crear elementos de video y canvas
+  useEffect(() => {
+    if (!isActive) return;
+
+    // Crear video element
+    if (!videoRef.current) {
+      const video = document.createElement('video');
+      video.className = 'input_video';
+      video.style.display = 'none';
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true;
+      document.body.appendChild(video);
+      videoRef.current = video;
+    }
+
+    // Crear canvas element
+    if (!canvasRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'output_canvas';
+      canvas.width = 640;
+      canvas.height = 480;
+      canvas.style.position = 'absolute';
+      canvas.style.left = '0';
+      canvas.style.top = '0';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.objectFit = 'cover';
+      
+      const container = document.getElementById('camera-container');
+      if (container) {
+        container.appendChild(canvas);
+      }
+      canvasRef.current = canvas;
+    }
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.remove();
+        videoRef.current = null;
+      }
+      if (canvasRef.current) {
+        canvasRef.current.remove();
+        canvasRef.current = null;
+      }
+    };
+  }, [isActive]);
+
+  return {
+    isLoading,
+    error,
+    handCount,
+    processedFrames,
+    videoRef,
+    canvasRef,
+    // Métodos de control
+    resetDetection: useCallback(() => {
+      frameCountRef.current = 0;
+      lastValidLandmarksRef.current = null;
+      setProcessedFrames(0);
+      setHandCount(0);
+    }, []),
+    getLastValidKeypoints: useCallback(() => {
+      return lastValidLandmarksRef.current;
+    }, [])
   };
-}
+};
 
 export default useMediaPipeDetection;

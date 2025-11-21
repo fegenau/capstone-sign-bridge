@@ -1,331 +1,480 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
-import { speak as ttsSpeak } from '../utils/tts';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import useMediaPipeDetection from '../hooks/useMediaPipeDetection';
 import useTfjsClassifier from '../hooks/useTfjsClassifier';
-import PredictionSmoother from '../utils/smoothPrediction';
-import { debounce } from '../utils/debounce';
+import * as Speech from 'expo-speech';
 
-export default function DetectScreen({ theme, textScale, ttsEnabled, confidenceThreshold = 0.6, smootherQueueLength = 5 }) {
-  const videoRef = useRef(null);
-  const [sequence, setSequence] = useState([]); // 24x126
-  const [pred, setPred] = useState({ label: 'Listo', confidence: 0, isStable: false });
-  const [fps, setFps] = useState(0);
-  const [facingMode, setFacingMode] = useState('user'); // 'user' or 'environment'
-  const [cameraStream, setCameraStream] = useState(null);
+const DetectScreen = ({ navigation }) => {
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [currentPrediction, setCurrentPrediction] = useState(null);
+  const [detectionStats, setDetectionStats] = useState({
+    fps: 0,
+    handsDetected: 0,
+    predictions: 0
+  });
+  const [speechEnabled, setSpeechEnabled] = useState(true);
+  
+  const lastSpokenRef = useRef('');
+  const statsIntervalRef = useRef(null);
+  const predictionCountRef = useRef(0);
 
-  // Smoothing and debouncing utilities
-  const smootherRef = useRef(new PredictionSmoother(smootherQueueLength));
-  const speakDebouncedRef = useRef(debounce((text) => {
-    try { ttsSpeak(text, { language: 'es-CL', rate: 0.95 }); } catch (e) {}
-  }, 800)); // 800ms debounce for TTS
-
-  const { isReady, isDetecting, startDetection, stopDetection } = useMediaPipeDetection({
-    videoRef,
-    onKeypointsReady: (seq) => {
-      console.log('[DetectScreen] Secuencia completa de 24 frames lista. Buffer:', {
-        framesCount: seq.length,
-        featuresDimension: seq[0]?.length || 0,
-        firstFrameKeypointsPreview: seq[0]?.slice(0, 6) // Primeros 6 valores (2 puntos x,y,z)
-      });
-      setSequence(seq);
-    },
-    onFrameKeypoints: () => tickFps(),
-    enableDebug: true, // Habilitar logs de MediaPipe
+  // Hook del clasificador con configuración optimizada
+  const {
+    classifySequence,
+    resetSequence,
+    getStats,
+    isModelLoading,
+    modelError,
+    modelReady
+  } = useTfjsClassifier({
+    sequenceLength: 30,
+    confidenceThreshold: 0.85,
+    smoothingWindow: 5,
+    debug: false
   });
 
-  const { ready: modelReady, classify, error: modelError } = useTfjsClassifier();
+  // Callback para manejar detección de manos
+  const handleHandDetection = useCallback(async (handData) => {
+    if (!modelReady || !handData || !handData.keypoints) {
+      return;
+    }
 
-  useEffect(() => {
-    let active = true;
-    console.log('[DetectScreen] 📦 State sequence:', { length: sequence?.length, modelReady });
-    if (sequence && sequence.length === 24) {
-      console.log('[DetectScreen] ✅ Buffer completo! Iniciando clasificación...');
-      (async () => {
-        try {
-          console.log('[DetectScreen] 📊 Iniciando clasificación de secuencia...');
-          const startTime = performance.now();
+    // Clasificar la secuencia
+    const prediction = await classifySequence(handData.keypoints);
+    
+    if (prediction) {
+      setCurrentPrediction(prediction);
+      predictionCountRef.current++;
 
-          const rawPred = await classify(sequence);
-          const inferenceTime = performance.now() - startTime;
-
-          console.log('[DetectScreen] 🎯 Resultado bruto de clasificación:', {
-            label: rawPred.label,
-            confidence: rawPred.confidence,
-            inferenceTimeMs: inferenceTime.toFixed(2)
+      // Text-to-Speech para la seña detectada
+      if (speechEnabled && prediction.confidence > 0.9) {
+        const text = prediction.class;
+        
+        // Evitar repetir la misma palabra muy seguido
+        if (text !== lastSpokenRef.current) {
+          lastSpokenRef.current = text;
+          
+          Speech.speak(text, {
+            language: 'es-CL',
+            pitch: 1.0,
+            rate: 0.9,
+            onDone: () => {
+              // Permitir nueva pronunciación después de completar
+              setTimeout(() => {
+                lastSpokenRef.current = '';
+              }, 1000);
+            }
           });
 
-          if (active) {
-            // Apply smoothing to raw prediction
-            const smoothedPred = smootherRef.current.addPrediction(rawPred, confidenceThreshold);
-            console.log('[DetectScreen] 🔄 Predicción después de suavizado:', {
-              label: smoothedPred.label,
-              confidence: smoothedPred.confidence,
-              isStable: smoothedPred.isStable
-            });
-            console.log('[DetectScreen] 🎨 Actualizando pred state con:', smoothedPred);
-            setPred(smoothedPred);
-
-            // Only speak if stable and above threshold
-            if (ttsEnabled && smoothedPred.label && smoothedPred.confidence > confidenceThreshold && smoothedPred.isStable) {
-              console.log('[DetectScreen] 🔊 Reproduciendo TTS para:', smoothedPred.label);
-              speakDebouncedRef.current(smoothedPred.label);
-            }
-
-            // IMPORTANT: Clear sequence for next classification
-            console.log('[DetectScreen] 🔄 Reiniciando secuencia para próxima predicción');
-            setSequence([]);
-          }
-        } catch (err) {
-          console.error('[DetectScreen] ❌ Error durante clasificación:', err);
-          // Also clear sequence on error
-          setSequence([]);
+          console.log(`[DetectScreen] 🔊 Pronunciando: "${text}" (${(prediction.confidence * 100).toFixed(1)}%)`);
         }
-      })();
+      }
     }
-    return () => { active = false; };
-  }, [sequence, classify, ttsEnabled, confidenceThreshold]);
+  }, [classifySequence, modelReady, speechEnabled]);
 
-  const tickFps = (() => {
-    let last = Date.now(); let frames = 0;
-    return () => {
-      frames += 1; const now = Date.now();
-      if (now - last >= 1000) { setFps(frames); frames = 0; last = now; }
-    };
-  })();
+  // Hook de MediaPipe con configuración optimizada
+  const {
+    isLoading: isMediaPipeLoading,
+    error: mediaPipeError,
+    handCount,
+    processedFrames,
+    resetDetection
+  } = useMediaPipeDetection({
+    isActive: isDetecting,
+    onHandDetection: handleHandDetection,
+    debug: false,
+    minDetectionConfidence: 0.3,
+    minTrackingConfidence: 0.3
+  });
 
-  useEffect(() => {
-    if (Platform.OS === 'web' && videoRef.current && videoRef.current.tagName !== 'VIDEO') {
-      // Crear elemento <video> para web si no existe
-      const vid = document.createElement('video');
-      vid.setAttribute('playsinline', '');
-      vid.setAttribute('autoplay', '');
-      vid.setAttribute('muted', '');
-      vid.style.width = '100%';
-      vid.style.height = '100%';
-      vid.style.objectFit = 'cover';
-      vid.style.transform = 'scaleX(-1)'; // Mirror the video for selfie camera
-      vid.style.display = 'block';
+  // Manejar inicio/detención de detección
+  const toggleDetection = useCallback(() => {
+    if (!isDetecting) {
+      // Verificar que todo esté listo
+      if (!modelReady) {
+        Alert.alert(
+          'Modelo no listo',
+          'El modelo de IA aún se está cargando. Por favor espera.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
-      // Clear previous content and add video
-      videoRef.current.innerHTML = '';
-      videoRef.current.appendChild(vid);
-      videoRef.current = vid;
-
-      console.log('[DetectScreen] ✅ Video element created and added to DOM');
+      // Iniciar detección
+      setIsDetecting(true);
+      resetSequence();
+      resetDetection();
+      predictionCountRef.current = 0;
+      lastSpokenRef.current = '';
+      
+      console.log('[DetectScreen] ✅ Detección iniciada');
+      
+      // Iniciar actualización de estadísticas
+      statsIntervalRef.current = setInterval(() => {
+        setDetectionStats({
+          fps: Math.round(processedFrames / 10),
+          handsDetected: handCount,
+          predictions: predictionCountRef.current
+        });
+      }, 1000);
+    } else {
+      // Detener detección
+      setIsDetecting(false);
+      setCurrentPrediction(null);
+      Speech.stop();
+      
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
+      }
+      
+      console.log('[DetectScreen] ⏹️ Detección detenida');
     }
+  }, [isDetecting, modelReady, resetSequence, resetDetection, handCount, processedFrames]);
+
+  // Toggle Text-to-Speech
+  const toggleSpeech = useCallback(() => {
+    setSpeechEnabled(prev => {
+      const newValue = !prev;
+      if (!newValue) {
+        Speech.stop();
+      }
+      console.log(`[DetectScreen] TTS: ${newValue ? 'Activado' : 'Desactivado'}`);
+      return newValue;
+    });
   }, []);
 
-  const startCamera = async () => {
-    if (Platform.OS === 'web') {
-      try {
-        console.log('[DetectScreen] 📷 Solicitando acceso a cámara con facingMode:', facingMode);
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
-        });
-        setCameraStream(stream);
-        videoRef.current.srcObject = stream;
-
-        // Wait for video to be ready with actual dimensions
-        await new Promise((resolve) => {
-          const checkReady = () => {
-            if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
-              console.log('[DetectScreen] ✅ Video stream ready:', {
-                width: videoRef.current.videoWidth,
-                height: videoRef.current.videoHeight,
-                readyState: videoRef.current.readyState
-              });
-              resolve();
-            } else {
-              setTimeout(checkReady, 50);
-            }
-          };
-          checkReady();
-        });
-
-        await videoRef.current.play();
-        console.log('[DetectScreen] ✅ Cámara iniciada correctamente');
-        startDetection();
-      } catch (err) {
-        console.error('[DetectScreen] ❌ Error al acceder a cámara:', err);
-        alert('Error al acceder a la cámara: ' + err.message);
+  // Limpiar al desmontar
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
       }
-    }
-  };
+    };
+  }, []);
 
-  const toggleCamera = async () => {
-    try {
-      console.log('[DetectScreen] 🔄 Alternando cámara...');
+  // Log del estado del modelo
+  useEffect(() => {
+    const stats = getStats();
+    console.log('[DetectScreen] 📊 Estado:', {
+      modelReady,
+      isModelLoading,
+      modelError,
+      ...stats
+    });
+  }, [modelReady, isModelLoading, modelError, getStats]);
 
-      // Detener detección y stream actual
-      stopDetection();
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => {
-          track.stop();
-          console.log('[DetectScreen] ✋ Track de cámara detenido:', track.kind);
-        });
-        setCameraStream(null);
-      }
-
-      // Cambiar facing mode
-      const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-      setFacingMode(newFacingMode);
-      console.log('[DetectScreen] 🔄 Modo de cámara cambiado a:', newFacingMode);
-
-      // Iniciar nueva cámara
-      setTimeout(() => {
-        startCamera();
-      }, 500);
-    } catch (err) {
-      console.error('[DetectScreen] ❌ Error al cambiar cámara:', err);
-    }
-  };
+  // UI del componente
+  const isLoading = isModelLoading || (isDetecting && isMediaPipeLoading);
+  const hasError = modelError || mediaPipeError;
 
   return (
-    <View style={[styles.wrap, { backgroundColor: theme.bg }]}>
-      {/* Video Container with Camera Toggle Button */}
-      <View style={styles.videoContainer}>
-        <View style={styles.videoWrap}>
-          {Platform.OS === 'web' ? (
-            <View ref={videoRef} accessibilityRole="image" accessibilityLabel="Cámara en vivo" style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <Text style={{ color: theme.fg }}>Cámara móvil se habilitará en futuras versiones.</Text>
-          )}
-        </View>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+        
+        <Text style={styles.headerTitle}>Detección de Señas</Text>
+        
+        <TouchableOpacity
+          style={[styles.speechButton, !speechEnabled && styles.speechButtonOff]}
+          onPress={toggleSpeech}
+        >
+          <Ionicons 
+            name={speechEnabled ? "volume-high" : "volume-mute"} 
+            size={24} 
+            color="#FFFFFF" 
+          />
+        </TouchableOpacity>
+      </View>
 
-        {/* Camera Toggle Button - Top Right Corner */}
-        {isDetecting && Platform.OS === 'web' && (
-          <Pressable
-            onPress={toggleCamera}
-            style={[styles.cameraToggleBtn, { backgroundColor: theme.accent }]}
-            accessibilityLabel="Cambiar cámara"
-          >
-            <Text style={styles.cameraToggleIcon}>🔄</Text>
-          </Pressable>
+      {/* Camera Container */}
+      <View style={styles.cameraContainer} id="camera-container">
+        {!isDetecting && (
+          <View style={styles.placeholderContainer}>
+            <Ionicons name="camera" size={80} color="#666" />
+            <Text style={styles.placeholderText}>
+              Presiona el botón para iniciar la cámara
+            </Text>
+          </View>
+        )}
+        
+        {isDetecting && isLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>Iniciando cámara...</Text>
+          </View>
         )}
       </View>
 
-      {/* HUD Section */}
-      <View style={styles.hud}>
-        <View style={styles.hudHeader}>
-          <Text style={[styles.hudLabel, { color: theme.fg, fontSize: 18 * textScale }]}>📍 Seña Detectada:</Text>
-          {pred.isStable && (
-            <Text style={[styles.stableIndicator, { color: theme.accent }]}>
-              ✅ Estable
-            </Text>
-          )}
-        </View>
-
-        <Text style={[styles.pred, { color: pred.isStable ? theme.accent : theme.fg, fontSize: 32 * textScale, fontWeight: '900' }]}>
-          {pred.label || '👆 Detectando…'}
-        </Text>
-
-        {/* Confidence Bar */}
-        <View style={styles.confidenceContainer}>
-          <View style={styles.confidenceBarBg}>
-            <View
+      {/* Prediction Display */}
+      {currentPrediction && (
+        <View style={styles.predictionContainer}>
+          <Text style={styles.predictionLabel}>Seña Detectada:</Text>
+          <Text style={styles.predictionText}>
+            {currentPrediction.class}
+          </Text>
+          <View style={styles.confidenceBar}>
+            <View 
               style={[
-                styles.confidenceBarFill,
-                {
-                  width: `${Math.min(100, pred.confidence * 100)}%`,
-                  backgroundColor: pred.confidence > 0.8 ? '#10b981' : pred.confidence > 0.6 ? theme.accent : '#f59e0b'
-                }
+                styles.confidenceFill,
+                { width: `${currentPrediction.confidence * 100}%` }
               ]}
             />
           </View>
-          <Text style={[styles.confText, { color: theme.fg, fontSize: 13 * textScale }]}>
-            📊 Confianza: {(pred.confidence * 100).toFixed(1)}%
+          <Text style={styles.confidenceText}>
+            Confianza: {(currentPrediction.confidence * 100).toFixed(1)}%
           </Text>
         </View>
+      )}
 
-        {/* Detailed Debug Information */}
-        <View style={styles.debugContainer}>
-          <Text style={[styles.meta, { color: theme.fg, fontSize: 11 * textScale }]}>
-            ⚡ FPS: {fps}
-          </Text>
-          <Text style={[styles.meta, { color: theme.fg, fontSize: 11 * textScale }]}>
-            📦 Buffer: {sequence?.length || 0}/24 frames
-          </Text>
-          <Text style={[styles.meta, { color: theme.fg, fontSize: 11 * textScale }]}>
-            {modelReady ? '✓ Modelo listo' : '⏳ Cargando modelo...'}
-          </Text>
+      {/* Stats Display */}
+      {isDetecting && (
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>FPS</Text>
+            <Text style={styles.statValue}>{detectionStats.fps}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Manos</Text>
+            <Text style={styles.statValue}>{detectionStats.handsDetected}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Detecciones</Text>
+            <Text style={styles.statValue}>{detectionStats.predictions}</Text>
+          </View>
         </View>
+      )}
 
-        {modelError && (
-          <Text style={[styles.errorText, { color: '#ef4444', fontSize: 12 * textScale }]}>
-            ⚠️ Error: {modelError}
-          </Text>
-        )}
-      </View>
+      {/* Error Display */}
+      {hasError && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning" size={24} color="#FF3B30" />
+          <Text style={styles.errorText}>{modelError || mediaPipeError}</Text>
+        </View>
+      )}
 
-      {/* Action Buttons */}
-      <View style={styles.actions}>
-        {!isDetecting ? (
-          <Pressable
-            onPress={startCamera}
-            style={[styles.btn, styles.btnPrimary, { backgroundColor: theme.accent }]}
-            accessibilityLabel="Iniciar detección"
-          >
-            <Text style={[styles.btnText, { color: '#000', fontSize: 16 * textScale }]}>▶️ Iniciar</Text>
-          </Pressable>
+      {/* Control Button */}
+      <TouchableOpacity
+        style={[
+          styles.controlButton,
+          isDetecting && styles.controlButtonActive,
+          !modelReady && styles.controlButtonDisabled
+        ]}
+        onPress={toggleDetection}
+        disabled={!modelReady && !isDetecting}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Pressable
-            onPress={stopDetection}
-            style={[styles.btn, styles.btnDanger, { backgroundColor: '#ef4444' }]}
-            accessibilityLabel="Detener detección"
-          >
-            <Text style={[styles.btnText, { color: '#fff', fontSize: 16 * textScale }]}>⏹️ Detener</Text>
-          </Pressable>
+          <>
+            <Ionicons 
+              name={isDetecting ? "stop-circle" : "play-circle"} 
+              size={32} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.controlButtonText}>
+              {isDetecting ? 'Detener' : 'Iniciar'} Detección
+            </Text>
+          </>
         )}
+      </TouchableOpacity>
+
+      {/* Model Status */}
+      <View style={styles.statusBar}>
+        <View style={[styles.statusDot, modelReady ? styles.statusDotGreen : styles.statusDotRed]} />
+        <Text style={styles.statusText}>
+          {modelReady ? 'Modelo listo' : isModelLoading ? 'Cargando modelo...' : 'Error en modelo'}
+        </Text>
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 12, gap: 12 },
-  videoContainer: { flex: 1, position: 'relative', borderRadius: 16, overflow: 'hidden' },
-  videoWrap: { flex: 1, borderRadius: 16, overflow: 'hidden', backgroundColor: '#222', borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)' },
-  cameraToggleBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  container: {
+    flex: 1,
+    backgroundColor: '#1C1C1E'
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: '#2C2C2E'
+  },
+  backButton: {
+    padding: 8
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF'
+  },
+  speechButton: {
+    padding: 8,
+    backgroundColor: '#007AFF',
+    borderRadius: 20
+  },
+  speechButtonOff: {
+    backgroundColor: '#48484A'
+  },
+  cameraContainer: {
+    flex: 1,
+    margin: 20,
+    backgroundColor: '#000000',
+    borderRadius: 15,
+    overflow: 'hidden',
+    position: 'relative'
+  },
+  placeholderContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-    zIndex: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)'
+    backgroundColor: '#1C1C1E'
   },
-  cameraToggleIcon: { fontSize: 28, fontWeight: '700' },
-  hud: {
-    padding: 18,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    gap: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backdropFilter: 'blur(10px)'
+  placeholderText: {
+    color: '#666',
+    marginTop: 20,
+    fontSize: 16
   },
-  hudHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  hudLabel: { fontWeight: '800', letterSpacing: 0.5, fontSize: 16 },
-  stableIndicator: { fontWeight: '700', fontSize: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: 'rgba(34,197,94,0.2)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.4)' },
-  pred: { fontWeight: '900', marginVertical: 6, textAlign: 'center', textShadow: '1px 1px 2px rgba(0,0,0,0.3)' },
-  confidenceContainer: { gap: 8, marginVertical: 6 },
-  confidenceBarBg: { height: 28, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)' },
-  confidenceBarFill: { height: '100%', borderRadius: 7, transition: 'width 150ms ease-out' },
-  confText: { fontWeight: '700', opacity: 0.95, fontSize: 12, marginLeft: 4 },
-  debugContainer: { gap: 6, marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-  meta: { opacity: 0.75, marginTop: 2, fontWeight: '500', fontSize: 11 },
-  errorText: { fontWeight: '700', marginTop: 10, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
-  actions: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
-  btn: { paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)', elevation: 4, boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)' },
-  btnPrimary: { elevation: 6, shadowOpacity: 0.3 },
-  btnDanger: { elevation: 6, shadowOpacity: 0.3 },
-  btnText: { fontWeight: '800', letterSpacing: 0.5, textAlign: 'center' }
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  loadingText: {
+    color: '#007AFF',
+    marginTop: 10,
+    fontSize: 16
+  },
+  predictionContainer: {
+    marginHorizontal: 20,
+    padding: 20,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 15,
+    alignItems: 'center'
+  },
+  predictionLabel: {
+    color: '#8E8E93',
+    fontSize: 14,
+    marginBottom: 5
+  },
+  predictionText: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textTransform: 'uppercase'
+  },
+  confidenceBar: {
+    width: '100%',
+    height: 6,
+    backgroundColor: '#48484A',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 10
+  },
+  confidenceFill: {
+    height: '100%',
+    backgroundColor: '#34C759',
+    borderRadius: 3
+  },
+  confidenceText: {
+    color: '#8E8E93',
+    fontSize: 14
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginHorizontal: 20,
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 10
+  },
+  statItem: {
+    alignItems: 'center'
+  },
+  statLabel: {
+    color: '#8E8E93',
+    fontSize: 12,
+    marginBottom: 5
+  },
+  statValue: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold'
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 10
+  },
+  errorText: {
+    color: '#FF3B30',
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14
+  },
+  controlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginVertical: 20,
+    padding: 15,
+    backgroundColor: '#007AFF',
+    borderRadius: 30
+  },
+  controlButtonActive: {
+    backgroundColor: '#FF3B30'
+  },
+  controlButtonDisabled: {
+    backgroundColor: '#48484A',
+    opacity: 0.5
+  },
+  controlButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 10
+  },
+  statusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 30
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8
+  },
+  statusDotGreen: {
+    backgroundColor: '#34C759'
+  },
+  statusDotRed: {
+    backgroundColor: '#FF3B30'
+  },
+  statusText: {
+    color: '#8E8E93',
+    fontSize: 14
+  }
 });
+
+export default DetectScreen;
