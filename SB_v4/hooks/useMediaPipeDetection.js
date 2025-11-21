@@ -124,7 +124,10 @@ export const useMediaPipeDetection = ({
   }, [onKeypointsReady, onFrameKeypoints]);
 
   const detectHands = useCallback(async (video) => {
-    if (!mediaRef.current.handDetector) return;
+    if (!mediaRef.current.handDetector) {
+      console.log('[useMediaPipeDetection] ⚠️ No handDetector available yet');
+      return;
+    }
     try {
       const now = Date.now();
       if (now - mediaRef.current.lastFrameTime < FRAME_INTERVAL) return;
@@ -134,7 +137,7 @@ export const useMediaPipeDetection = ({
       if (Platform.OS === 'web') {
         // Check if video has valid dimensions and is playing
         if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-          _log(`⚠️ Video not ready: width=${video?.videoWidth}, height=${video?.videoHeight}, readyState=${video?.readyState}`);
+          console.warn('[useMediaPipeDetection] ⚠️ Video not ready: width=' + video?.videoWidth + ', height=' + video?.videoHeight + ', readyState=' + video?.readyState);
           return;
         }
 
@@ -212,8 +215,13 @@ export const useMediaPipeDetection = ({
   }, [combineHandKeypoints, normalizeKeypoints, addFrameToBuffer, onError]);
 
   const startDetectionLoop = useCallback(() => {
-    if (!videoRef || !videoRef.current) return;
+    console.log('[useMediaPipeDetection] startDetectionLoop called', { videoRefExists: !!videoRef, videoRefCurrent: !!videoRef?.current });
+    if (!videoRef || !videoRef.current) {
+      console.warn('[useMediaPipeDetection] ⚠️ No video ref available');
+      return;
+    }
     const video = videoRef.current;
+    console.log('[useMediaPipeDetection] ✅ Starting detection loop with video:', { videoWidth: video.videoWidth, videoHeight: video.videoHeight });
     const loop = async () => {
       if (isDetecting) {
         await detectHands(video);
@@ -285,8 +293,14 @@ export const useMediaPipeDetection = ({
   }, []);
 
   const startDetection = useCallback(async () => {
-    if (!isReady) { Alert.alert('Error', 'MediaPipe aún no está listo'); return; }
+    console.log('[useMediaPipeDetection] startDetection called, isReady:', isReady);
+    if (!isReady) {
+      console.warn('[useMediaPipeDetection] ⚠️ MediaPipe no está listo');
+      Alert.alert('Error', 'MediaPipe aún no está listo');
+      return;
+    }
     try {
+      console.log('[useMediaPipeDetection] ✅ Starting detection, setting isDetecting=true');
       setIsDetecting(true);
       mediaRef.current.frameBuffer = [];
       startDetectionLoop();
